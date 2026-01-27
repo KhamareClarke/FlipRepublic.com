@@ -50,7 +50,7 @@ function LoginContent() {
             if (!authData.exists) {
               setError("Account not found. This email may be registered as a seller but the authentication account was not created. Please contact support or try signing up again.");
             } else if (authData.isSeller) {
-              setError("Invalid password. Your seller account exists but the password is incorrect. If you forgot your password, please contact support. Note: Seller accounts created through the admin system may need password reset.");
+              setError("Invalid password. Your seller account exists but the password is incorrect. Please contact support.");
             } else {
               setError("Invalid email or password. Please check your credentials and try again.");
             }
@@ -219,39 +219,6 @@ function LoginContent() {
             >
               Create an account (Buyers only)
             </Link>
-          </p>
-          <p className="text-white/50 text-sm">
-            Forgot password?{" "}
-            <button
-              type="button"
-              onClick={async () => {
-                if (!email) {
-                  setError("Please enter your email address first.");
-                  return;
-                }
-                setLoading(true);
-                setError(null);
-                try {
-                  const supabase = createSupabaseBrowserClient();
-                  const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${window.location.origin}/reset-password`,
-                  });
-                  if (resetError) {
-                    setError(resetError.message);
-                  } else {
-                    setSuccess("Password reset email sent! Please check your inbox.");
-                  }
-                } catch (err: any) {
-                  setError("Failed to send password reset email. Please contact support.");
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              className="text-gold hover:text-gold/80 transition-colors underline"
-              disabled={loading || !email}
-            >
-              Reset password
-            </button>
           </p>
         </div>
       </div>

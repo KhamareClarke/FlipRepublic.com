@@ -69,7 +69,7 @@ export default function SellerSignupPage() {
             router.push("/dashboard");
             return;
           } else {
-            setError("Account already exists. Please sign in instead, or use password reset if you forgot your password.");
+            setError("Account already exists. Please sign in instead.");
             setLoading(false);
             return;
           }
