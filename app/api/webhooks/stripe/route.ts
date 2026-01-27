@@ -37,13 +37,13 @@ export async function POST(request: NextRequest) {
     if (productId && sellerId && buyerId) {
       const supabase = createSupabaseAdminClient();
       
-      // Get shipping address from metadata or session
-      const shippingAddress = metadata.shipping_address || session.shipping_details?.address?.line1 || "";
-      const shippingCity = metadata.shipping_city || session.shipping_details?.address?.city || "";
-      const shippingPostalCode = metadata.shipping_postal_code || session.shipping_details?.address?.postal_code || "";
-      const shippingCountry = metadata.shipping_country || session.shipping_details?.address?.country || "United Kingdom";
-      const shippingPhone = metadata.shipping_phone || session.shipping_details?.phone || "";
-      const buyerName = metadata.buyer_name || session.shipping_details?.name || session.customer_details?.name || "";
+      // Get shipping address from metadata (collected in checkout modal)
+      const shippingAddress = metadata.shipping_address || "";
+      const shippingCity = metadata.shipping_city || "";
+      const shippingPostalCode = metadata.shipping_postal_code || "";
+      const shippingCountry = metadata.shipping_country || "United Kingdom";
+      const shippingPhone = metadata.shipping_phone || "";
+      const buyerName = metadata.buyer_name || session.customer_details?.name || "";
       
       // Create order with shipping address
       const orderData: any = {
