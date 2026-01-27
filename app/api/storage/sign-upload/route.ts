@@ -28,5 +28,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ path: filePath, ...data });
+  // Spread data first, then override path with our filePath
+  return NextResponse.json({ 
+    ...(data || {}),
+    path: filePath
+  });
 }
