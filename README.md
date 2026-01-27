@@ -36,6 +36,24 @@ A production-ready Next.js 14+ frontend for a black & gold, ultra-premium multi-
 npm install
 ```
 
+### Environment Variables
+
+Set the following variables in your hosting environment:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_STORAGE_BUCKET` (defaults to `product-images`)
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `NEXT_PUBLIC_APP_URL` (defaults to `http://localhost:3000`)
+- `SMTP_HOST` (defaults to `smtp.gmail.com`)
+- `SMTP_PORT` (defaults to `465`)
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+- `ADMIN_EMAIL`
+
 ### Development
 
 ```bash

@@ -1,45 +1,75 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ProductCard } from "@/components/product-card";
-import { products } from "@/lib/data";
-import { Filter } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 
 export default function MarketplacePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedCondition, setSelectedCondition] = useState<string>("all");
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
 
-  const brands = Array.from(new Set(products.map((p) => p.brand))).sort();
+  useEffect(() => {
+    const loadCategories = async () => {
+      const response = await fetch("/api/categories");
+      const data = await response.json();
+      setCategories(data.categories ?? []);
+    };
+    loadCategories();
+  }, []);
 
-  const filteredProducts = products.filter((product) => {
-    if (selectedCategory !== "all" && product.category.toLowerCase() !== selectedCategory) {
-      return false;
+  useEffect(() => {
+    const categoryParam = searchParams.get("category");
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
     }
-    if (selectedCondition !== "all" && product.condition !== selectedCondition) {
-      return false;
-    }
-    if (selectedBrand !== "all" && product.brand !== selectedBrand) {
-      return false;
-    }
-    return true;
-  });
+  }, [searchParams]);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      // Remove status filter to show all products including sold items
+      if (selectedCategory !== "all") params.set("category", selectedCategory);
+      if (selectedCondition !== "all") params.set("condition", selectedCondition);
+      if (selectedBrand !== "all") params.set("brand", selectedBrand);
+      if (search) params.set("search", search);
+
+      const response = await fetch(`/api/products?${params.toString()}`);
+      const data = await response.json();
+      setProducts(data.products ?? []);
+      setLoading(false);
+    };
+
+    loadProducts();
+  }, [selectedCategory, selectedCondition, selectedBrand, search]);
+
+  const brands = useMemo(
+    () => Array.from(new Set(products.map((p) => p.brand))).sort(),
+    [products]
+  );
 
   return (
-    <div className="min-h-screen bg-black py-24">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="mb-16">
-          <h1 className="font-serif text-6xl md:text-7xl mb-4 font-bold">
+    <div className="min-h-screen bg-black py-20 sm:py-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="mb-8 sm:mb-12 md:mb-16">
+          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-2 sm:mb-4 font-bold">
             <span className="text-gradient-luxury">Marketplace</span>
           </h1>
-          <p className="text-white/70 text-lg font-light">
-            {filteredProducts.length} authenticated items available
+          <p className="text-white/70 text-base sm:text-lg font-light">
+            {products.length} authenticated items
           </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-12">
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
           <aside className="lg:w-64 flex-shrink-0">
-            <div className="sticky top-24 space-y-8">
+            <div className="lg:sticky lg:top-24 space-y-6 sm:space-y-8">
               <div className="flex items-center space-x-2 text-gold mb-6">
                 <Filter className="w-5 h-5" />
                 <h2 className="text-lg font-semibold text-gradient-gold">Filters</h2>
@@ -47,10 +77,25 @@ export default function MarketplacePage() {
 
               <div>
                 <h3 className="text-white/90 font-semibold mb-4 text-sm uppercase tracking-wider-luxury">
+                  Search
+                </h3>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-white/40 absolute left-3 top-3" />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="w-full bg-black border border-white/20 pl-10 pr-3 py-2 text-sm text-white focus:border-gold focus:outline-none transition-colors"
+                    placeholder="Search brand or item"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-white/90 font-semibold mb-4 text-sm uppercase tracking-wider-luxury">
                   Category
                 </h3>
                 <div className="space-y-2">
-                  {["all", "trainers", "streetwear", "luxury"].map((category) => (
+                  {["all", ...categories.map((category: any) => category.slug)].map((category) => (
                     <button
                       key={category}
                       onClick={() => setSelectedCategory(category)}
@@ -121,7 +166,11 @@ export default function MarketplacePage() {
           </aside>
 
           <div className="flex-1">
-            {filteredProducts.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-20">
+                <p className="text-white/40 text-lg">Loading listings...</p>
+              </div>
+            ) : products.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-white/40 text-lg">
                   No items match your filters
@@ -129,7 +178,7 @@ export default function MarketplacePage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredProducts.map((product) => (
+                {products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>

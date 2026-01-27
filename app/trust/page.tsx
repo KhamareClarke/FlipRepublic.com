@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,6 +15,19 @@ import {
 } from "lucide-react";
 
 export default function TrustPage() {
+  const [trustPillars, setTrustPillars] = useState<
+    { id: string; title: string; description: string }[]
+  >([]);
+
+  useEffect(() => {
+    const loadTrustPillars = async () => {
+      const response = await fetch("/api/trust-pillars");
+      const data = await response.json();
+      setTrustPillars(data.trustPillars ?? []);
+    };
+    loadTrustPillars();
+  }, []);
+
   const process = [
     {
       step: "01",
@@ -45,26 +59,32 @@ export default function TrustPage() {
     },
   ];
 
-  const guarantees = [
-    {
-      icon: ShieldCheck,
-      title: "100% Authenticity Guarantee",
-      description:
-        "Every item is verified by expert authenticators. If any item is found to be inauthentic, you receive a full refund plus compensation.",
-    },
-    {
-      icon: Lock,
-      title: "Secure Transactions",
-      description:
-        "All payments are processed through encrypted channels. Your financial information is never stored or shared.",
-    },
-    {
-      icon: Award,
-      title: "Curated Sellers Only",
-      description:
-        "We maintain an invitation-only seller network. Every vendor is vetted, verified, and monitored for quality.",
-    },
-  ];
+  const guarantees = trustPillars.length
+    ? trustPillars.map((pillar, index) => ({
+        icon: [ShieldCheck, Lock, Award][index % 3],
+        title: pillar.title,
+        description: pillar.description,
+      }))
+    : [
+        {
+          icon: ShieldCheck,
+          title: "100% Authenticity Guarantee",
+          description:
+            "Every item is verified by expert authenticators. If any item is found to be inauthentic, you receive a full refund plus compensation.",
+        },
+        {
+          icon: Lock,
+          title: "Secure Transactions",
+          description:
+            "All payments are processed through encrypted channels. Your financial information is never stored or shared.",
+        },
+        {
+          icon: Award,
+          title: "Curated Sellers Only",
+          description:
+            "We maintain an invitation-only seller network. Every vendor is vetted, verified, and monitored for quality.",
+        },
+      ];
 
   return (
     <div className="min-h-screen bg-black py-24">

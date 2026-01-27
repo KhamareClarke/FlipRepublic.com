@@ -1,15 +1,42 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/product-card";
-import { products, categories, trustPillars, sellers } from "@/lib/data";
 import { ShieldCheck, Award, Lock, Package } from "lucide-react";
 
 export default function HomePage() {
-  const featuredProducts = products.filter((p) => p.featured);
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [trustPillars, setTrustPillars] = useState<any[]>([]);
+  const [sellers, setSellers] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadHome = async () => {
+      const [productsResponse, categoriesResponse, trustResponse, sellersResponse] =
+        await Promise.all([
+          fetch("/api/products"), // Show all products including sold items
+          fetch("/api/categories"),
+          fetch("/api/trust-pillars"),
+          fetch("/api/sellers"),
+        ]);
+
+      const productsData = await productsResponse.json();
+      const categoriesData = await categoriesResponse.json();
+      const trustData = await trustResponse.json();
+      const sellersData = await sellersResponse.json();
+
+      setFeaturedProducts((productsData.products ?? []).slice(0, 4));
+      setCategories(categoriesData.categories ?? []);
+      setTrustPillars(trustData.trustPillars ?? []);
+      setSellers(sellersData.sellers ?? []);
+    };
+
+    loadHome();
+  }, []);
 
   return (
     <div className="bg-black">
@@ -23,28 +50,28 @@ export default function HomePage() {
           className="object-cover opacity-30"
           priority
         />
-        <div className="relative z-20 max-w-5xl mx-auto px-6 text-center">
+        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 1, ease: "easeOut" }}
           >
-            <div className="mb-8">
-              <div className="inline-block px-6 py-2 luxury-border rounded-full mb-6">
-                <span className="text-gold text-xs uppercase tracking-wider-luxury font-semibold">Est. 2024 • Invitation Only</span>
+            <div className="mb-6 sm:mb-8">
+              <div className="inline-block px-4 sm:px-6 py-1.5 sm:py-2 luxury-border rounded-full mb-4 sm:mb-6">
+                <span className="text-gold text-[10px] sm:text-xs uppercase tracking-wider-luxury font-semibold">Est. 2024 • Invitation Only</span>
               </div>
             </div>
-            <h1 className="font-serif text-5xl md:text-7xl mb-8 leading-[0.95] font-black tracking-tight">
+            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl mb-6 sm:mb-8 leading-[0.95] font-black tracking-tight">
               <span className="text-gradient-luxury text-luxury-shadow block">THE PRIVATE</span>
               <span className="text-gradient-luxury text-luxury-shadow block">MARKET</span>
-              <span className="text-gradient-luxury text-luxury-shadow block mt-3">FOR ELITE RESALE</span>
+              <span className="text-gradient-luxury text-luxury-shadow block mt-2 sm:mt-3">FOR ELITE RESALE</span>
             </h1>
-            <div className="max-w-3xl mx-auto mb-12">
-              <p className="text-white/90 text-xl md:text-2xl mb-6 leading-relaxed font-light tracking-wide">
+            <div className="max-w-3xl mx-auto mb-8 sm:mb-12">
+              <p className="text-white/90 text-base sm:text-lg md:text-xl lg:text-2xl mb-4 sm:mb-6 leading-relaxed font-light tracking-wide px-2">
                 Where institutional-grade authentication meets
                 <span className="text-gradient-gold font-semibold"> private luxury commerce</span>
               </p>
-              <div className="flex items-center justify-center gap-12 text-xs text-white/50 mt-8">
+              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 md:gap-12 text-xs text-white/50 mt-6 sm:mt-8">
                 <div className="flex items-center gap-2.5">
                   <div className="w-1 h-1 bg-gold/60 rounded-full"></div>
                   <span className="uppercase tracking-widest">Zero Counterfeits</span>
@@ -59,76 +86,76 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-              <Link href="/marketplace">
-                <Button size="lg" variant="primary" className="min-w-[240px]">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
+              <Link href="/marketplace" className="w-full sm:w-auto">
+                <Button size="lg" variant="primary" className="w-full sm:min-w-[240px]">
                   Enter Marketplace
                 </Button>
               </Link>
-              <Link href="/apply">
-                <Button size="lg" variant="outline" className="min-w-[240px]">
+              <Link href="/apply" className="w-full sm:w-auto">
+                <Button size="lg" variant="outline" className="w-full sm:min-w-[240px]">
                   Apply for Access
                 </Button>
               </Link>
             </div>
-            <p className="text-white/40 text-xs mt-8 uppercase tracking-widest">Trusted by collectors worldwide</p>
+            <p className="text-white/40 text-[10px] sm:text-xs mt-6 sm:mt-8 uppercase tracking-widest">Trusted by collectors worldwide</p>
           </motion.div>
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-6 py-32">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 md:py-32">
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-20"
+          className="text-center mb-12 sm:mb-16 md:mb-20"
         >
-          <div className="inline-block luxury-border rounded-full px-8 py-3 mb-6">
-            <span className="text-gold text-sm uppercase tracking-wider-luxury font-semibold">Latest Arrivals</span>
+          <div className="inline-block luxury-border rounded-full px-6 sm:px-8 py-2 sm:py-3 mb-4 sm:mb-6">
+            <span className="text-gold text-xs sm:text-sm uppercase tracking-wider-luxury font-semibold">Latest Arrivals</span>
           </div>
-          <h2 className="font-serif text-6xl md:text-7xl mb-6 font-black tracking-tight">
+          <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 sm:mb-6 font-black tracking-tight">
             <span className="shimmer-text">Curated Drops</span>
           </h2>
-          <p className="text-white/80 text-lg max-w-2xl mx-auto font-light leading-relaxed">
+          <p className="text-white/80 text-base sm:text-lg max-w-2xl mx-auto font-light leading-relaxed px-4">
             Museum-grade authentication. Institutional standards.
             <span className="text-gradient-gold font-semibold"> Zero compromise.</span>
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {featuredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
 
-        <div className="text-center mt-16">
+        <div className="text-center mt-12 sm:mt-16">
           <Link href="/marketplace">
-            <Button variant="outline" size="lg">
+            <Button variant="outline" size="lg" className="w-full sm:w-auto">
               View All Items
             </Button>
           </Link>
         </div>
       </section>
 
-      <section className="bg-black-soft py-32">
-        <div className="max-w-7xl mx-auto px-6">
+      <section className="bg-black-soft py-16 sm:py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-20"
+            className="text-center mb-12 sm:mb-16 md:mb-20"
           >
-            <h2 className="font-serif text-5xl md:text-6xl mb-6 font-bold">
+            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-4 sm:mb-6 font-bold">
               <span className="shimmer-text">Shop by Category</span>
             </h2>
-            <p className="text-white/70 text-lg font-light">
+            <p className="text-white/70 text-base sm:text-lg font-light px-4">
               Discover authenticated luxury across our curated collections
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
             {categories.map((category, index) => (
               <Link key={category.id} href={`/marketplace?category=${category.slug}`}>
                 <motion.div
@@ -162,24 +189,24 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-6 py-32">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 md:py-32">
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-20"
+          className="text-center mb-12 sm:mb-16 md:mb-20"
         >
-          <h2 className="font-serif text-5xl md:text-6xl mb-6 font-bold">
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-4 sm:mb-6 font-bold">
             <span className="shimmer-text">Why FlipRepublic</span>
           </h2>
-          <p className="text-white/70 text-lg max-w-2xl mx-auto font-light">
+          <p className="text-white/70 text-base sm:text-lg max-w-2xl mx-auto font-light px-4">
             Built on trust, curated for excellence, designed for collectors
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-          {trustPillars.map((pillar, index) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 md:gap-12">
+          {trustPillars.map((pillar: any, index: number) => {
             const icons = [ShieldCheck, Award, Lock, Package];
             const Icon = icons[index];
 
@@ -207,8 +234,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-black-soft py-32">
-        <div className="max-w-7xl mx-auto px-6">
+      <section className="bg-black-soft py-16 sm:py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -225,7 +252,7 @@ export default function HomePage() {
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {sellers.map((seller, index) => (
+            {sellers.map((seller: any, index: number) => (
               <motion.div
                 key={seller.id}
                 initial={{ opacity: 0, y: 20 }}

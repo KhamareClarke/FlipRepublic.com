@@ -5,14 +5,20 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { Product } from "@/lib/data";
+import { ProductWithImages } from "@/lib/supabase/types";
 import { ShieldCheck } from "lucide-react";
 
 interface ProductCardProps {
-  product: Product;
+  product: ProductWithImages | any;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const imageUrl =
+    Array.isArray(product.images) && product.images.length > 0
+      ? typeof product.images[0] === "string"
+        ? product.images[0]
+        : product.images[0]?.url
+      : "";
   return (
     <Link href={`/product/${product.id}`}>
       <motion.div
@@ -25,7 +31,10 @@ export function ProductCard({ product }: ProductCardProps) {
       >
         <div className="relative aspect-square mb-4 overflow-hidden premium-card">
           <Image
-            src={product.images[0]}
+            src={
+              imageUrl ||
+              "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80"
+            }
             alt={product.name}
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -87,7 +96,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <div className="flex items-center gap-2 text-[10px]">
             <span className="text-white/50 uppercase tracking-wider">{product.condition}</span>
-            {product.seller.verified && (
+            {product.seller?.is_verified && (
               <>
                 <span className="text-white/20">•</span>
                 <div className="flex items-center gap-1">
