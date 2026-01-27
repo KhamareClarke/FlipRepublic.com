@@ -175,7 +175,7 @@ export default function SellerSignupPage() {
         </h1>
         <p className="text-white/70 mb-4">Create your seller account. You must have an approved seller application to sign up.</p>
         <p className="text-white/50 text-sm mb-10">
-          Don't have an approved application?{" "}
+          Don&apos;t have an approved application?{" "}
           <Link href="/apply" className="text-gold hover:text-gold/80">
             Apply to Sell
           </Link>
