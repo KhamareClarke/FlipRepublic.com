@@ -50,14 +50,14 @@ export default function HomePage() {
           className="object-cover opacity-30"
           priority
         />
-        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center pt-12 sm:pt-0">
+        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center pt-10 sm:pt-0">
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 1, ease: "easeOut" }}
           >
-            <div className="mb-0 sm:mb-6 md:mb-8 -mt-2 sm:mt-0">
-              <div className="inline-block px-4 sm:px-6 py-1 sm:py-2 luxury-border rounded-full mb-0 sm:mb-4 md:mb-6">
+            <div className="mb-0 sm:mb-6 md:mb-8 -mt-4 sm:mt-0">
+              <div className="inline-block px-4 sm:px-6 py-0.5 sm:py-2 luxury-border rounded-full mb-0 sm:mb-4 md:mb-6">
                 <span className="text-gold text-[10px] sm:text-xs uppercase tracking-wider-luxury font-semibold">Est. 2024 • Invitation Only</span>
               </div>
             </div>
