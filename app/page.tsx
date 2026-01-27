@@ -40,7 +40,7 @@ export default function HomePage() {
 
   return (
     <div className="bg-black">
-      <section className="relative h-screen flex items-start sm:items-center justify-center overflow-hidden diagonal-lines pt-0 sm:pt-0">
+      <section className="relative h-screen flex items-start sm:items-center justify-center overflow-hidden diagonal-lines">
         <div className="absolute inset-0 bg-gradient-to-b from-black via-black/30 to-black z-10" />
         <div className="absolute inset-0 bg-gradient-radial from-gold/5 via-transparent to-transparent z-10" />
         <Image
@@ -50,55 +50,67 @@ export default function HomePage() {
           className="object-cover opacity-30"
           priority
         />
-        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center pt-10 sm:pt-0">
+        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center pt-[56px] sm:pt-0">
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 1, ease: "easeOut" }}
+            className="space-y-0 sm:space-y-0"
           >
-            <div className="mb-0 sm:mb-6 md:mb-8 -mt-4 sm:mt-0">
-              <div className="inline-block px-4 sm:px-6 py-0.5 sm:py-2 luxury-border rounded-full mb-0 sm:mb-4 md:mb-6">
-                <span className="text-gold text-[10px] sm:text-xs uppercase tracking-wider-luxury font-semibold">Est. 2024 • Invitation Only</span>
+            {/* Est. 2024 Badge - Minimal spacing on mobile */}
+            <div className="mb-0 sm:mb-6 md:mb-8">
+              <div className="inline-block px-3 sm:px-6 py-1 sm:py-2 luxury-border rounded-full">
+                <span className="text-gold text-[9px] sm:text-xs uppercase tracking-wider-luxury font-semibold leading-tight">Est. 2024 • Invitation Only</span>
               </div>
             </div>
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl mb-0 sm:mb-6 md:mb-8 leading-[0.95] font-black tracking-tight">
+            
+            {/* Main Title - Tighter spacing on mobile */}
+            <h1 className="font-serif text-2xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl leading-[0.9] sm:leading-[0.95] font-black tracking-tight">
               <span className="text-gradient-luxury text-luxury-shadow block">THE PRIVATE</span>
               <span className="text-gradient-luxury text-luxury-shadow block">MARKET</span>
-              <span className="text-gradient-luxury text-luxury-shadow block mt-0 sm:mt-3">FOR ELITE RESALE</span>
+              <span className="text-gradient-luxury text-luxury-shadow block">FOR ELITE RESALE</span>
             </h1>
-            <div className="max-w-3xl mx-auto mb-1 sm:mb-8 md:mb-12">
-              <p className="text-white/90 text-base sm:text-lg md:text-xl lg:text-2xl mb-1 sm:mb-6 leading-relaxed font-light tracking-wide px-2">
+            
+            {/* Tagline - Compact on mobile */}
+            <div className="max-w-3xl mx-auto pt-1 sm:pt-0">
+              <p className="text-white/90 text-sm sm:text-lg md:text-xl lg:text-2xl leading-tight sm:leading-relaxed font-light tracking-wide px-2">
                 Where institutional-grade authentication meets
                 <span className="text-gradient-gold font-semibold"> private luxury commerce</span>
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-8 md:gap-12 text-xs text-white/50 mt-3 sm:mt-8">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-1 h-1 bg-gold/60 rounded-full"></div>
+              
+              {/* Bullet Points - Compact on mobile */}
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-8 md:gap-12 text-[10px] sm:text-xs text-white/50 mt-2 sm:mt-8">
+                <div className="flex items-center gap-1.5 sm:gap-2.5">
+                  <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-gold/60 rounded-full"></div>
                   <span className="uppercase tracking-widest">Zero Counterfeits</span>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-1 h-1 bg-gold/60 rounded-full"></div>
+                <div className="flex items-center gap-1.5 sm:gap-2.5">
+                  <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-gold/60 rounded-full"></div>
                   <span className="uppercase tracking-widest">Vetted Sellers</span>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-1 h-1 bg-gold/60 rounded-full"></div>
+                <div className="flex items-center gap-1.5 sm:gap-2.5">
+                  <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-gold/60 rounded-full"></div>
                   <span className="uppercase tracking-widest">Buyer Protection</span>
                 </div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 justify-center items-center">
+            
+            {/* CTA Buttons - Compact spacing on mobile */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 justify-center items-center pt-2 sm:pt-0">
               <Link href="/marketplace" className="w-full sm:w-auto">
-                <Button size="lg" variant="primary" className="w-full sm:min-w-[240px]">
+                <Button size="lg" variant="primary" className="w-full sm:min-w-[240px] text-sm sm:text-base">
                   Enter Marketplace
                 </Button>
               </Link>
               <Link href="/apply" className="w-full sm:w-auto">
-                <Button size="lg" variant="outline" className="w-full sm:min-w-[240px]">
+                <Button size="lg" variant="outline" className="w-full sm:min-w-[240px] text-sm sm:text-base">
                   Apply for Access
                 </Button>
               </Link>
             </div>
-            <p className="text-white/40 text-[10px] sm:text-xs mt-3 sm:mt-8 uppercase tracking-widest">Trusted by collectors worldwide</p>
+            
+            {/* Footer Text - Minimal spacing */}
+            <p className="text-white/40 text-[9px] sm:text-xs mt-2 sm:mt-8 uppercase tracking-widest">Trusted by collectors worldwide</p>
           </motion.div>
         </div>
       </section>
