@@ -50,67 +50,94 @@ export default function HomePage() {
           className="object-cover opacity-30"
           priority
         />
-        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center pt-[56px] sm:pt-0">
+        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center pt-[60px] sm:pt-0">
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 1, ease: "easeOut" }}
-            className="space-y-0 sm:space-y-0"
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col items-center"
           >
-            {/* Est. 2024 Badge - Minimal spacing on mobile */}
-            <div className="mb-0 sm:mb-6 md:mb-8">
-              <div className="inline-block px-3 sm:px-6 py-1 sm:py-2 luxury-border rounded-full">
-                <span className="text-gold text-[9px] sm:text-xs uppercase tracking-wider-luxury font-semibold leading-tight">Est. 2024 • Invitation Only</span>
+            {/* Est. 2024 Badge - Premium styling */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="mb-2 sm:mb-6 md:mb-8"
+            >
+              <div className="inline-block px-4 sm:px-6 py-1.5 sm:py-2 luxury-border rounded-full backdrop-blur-sm bg-black/20">
+                <span className="text-gold text-[10px] sm:text-xs uppercase tracking-[0.15em] font-semibold">Est. 2024 • Invitation Only</span>
               </div>
-            </div>
+            </motion.div>
             
-            {/* Main Title - Tighter spacing on mobile */}
-            <h1 className="font-serif text-2xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl leading-[0.9] sm:leading-[0.95] font-black tracking-tight">
+            {/* Main Title - Perfect typography hierarchy */}
+            <motion.h1
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className="font-serif text-[28px] leading-[0.92] sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl sm:leading-[0.95] font-black tracking-[-0.02em] sm:tracking-tight mb-1 sm:mb-2 md:mb-4"
+            >
               <span className="text-gradient-luxury text-luxury-shadow block">THE PRIVATE</span>
               <span className="text-gradient-luxury text-luxury-shadow block">MARKET</span>
               <span className="text-gradient-luxury text-luxury-shadow block">FOR ELITE RESALE</span>
-            </h1>
+            </motion.h1>
             
-            {/* Tagline - Compact on mobile */}
-            <div className="max-w-3xl mx-auto pt-1 sm:pt-0">
-              <p className="text-white/90 text-sm sm:text-lg md:text-xl lg:text-2xl leading-tight sm:leading-relaxed font-light tracking-wide px-2">
+            {/* Tagline - Refined spacing */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.35 }}
+              className="max-w-3xl mx-auto pt-1 sm:pt-2"
+            >
+              <p className="text-white/90 text-[13px] leading-[1.5] sm:text-lg md:text-xl lg:text-2xl sm:leading-relaxed font-light tracking-wide px-1 sm:px-2">
                 Where institutional-grade authentication meets
                 <span className="text-gradient-gold font-semibold"> private luxury commerce</span>
               </p>
               
-              {/* Bullet Points - Compact on mobile */}
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-8 md:gap-12 text-[10px] sm:text-xs text-white/50 mt-2 sm:mt-8">
+              {/* Bullet Points - Elegant spacing */}
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-8 md:gap-12 text-[9px] sm:text-xs text-white/50 mt-3 sm:mt-6 md:mt-8">
                 <div className="flex items-center gap-1.5 sm:gap-2.5">
-                  <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-gold/60 rounded-full"></div>
-                  <span className="uppercase tracking-widest">Zero Counterfeits</span>
+                  <div className="w-1 h-1 bg-gold/70 rounded-full"></div>
+                  <span className="uppercase tracking-[0.1em]">Zero Counterfeits</span>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2.5">
-                  <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-gold/60 rounded-full"></div>
-                  <span className="uppercase tracking-widest">Vetted Sellers</span>
+                  <div className="w-1 h-1 bg-gold/70 rounded-full"></div>
+                  <span className="uppercase tracking-[0.1em]">Vetted Sellers</span>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2.5">
-                  <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 bg-gold/60 rounded-full"></div>
-                  <span className="uppercase tracking-widest">Buyer Protection</span>
+                  <div className="w-1 h-1 bg-gold/70 rounded-full"></div>
+                  <span className="uppercase tracking-[0.1em]">Buyer Protection</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
             
-            {/* CTA Buttons - Compact spacing on mobile */}
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 justify-center items-center pt-2 sm:pt-0">
+            {/* CTA Buttons - Premium button styling */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="flex flex-col sm:flex-row gap-2.5 sm:gap-6 justify-center items-stretch sm:items-center w-full sm:w-auto mt-4 sm:mt-6 md:mt-8"
+            >
               <Link href="/marketplace" className="w-full sm:w-auto">
-                <Button size="lg" variant="primary" className="w-full sm:min-w-[240px] text-sm sm:text-base">
+                <Button size="lg" variant="primary" className="w-full sm:min-w-[240px] text-sm sm:text-base font-semibold tracking-wide">
                   Enter Marketplace
                 </Button>
               </Link>
               <Link href="/apply" className="w-full sm:w-auto">
-                <Button size="lg" variant="outline" className="w-full sm:min-w-[240px] text-sm sm:text-base">
+                <Button size="lg" variant="outline" className="w-full sm:min-w-[240px] text-sm sm:text-base font-semibold tracking-wide">
                   Apply for Access
                 </Button>
               </Link>
-            </div>
+            </motion.div>
             
-            {/* Footer Text - Minimal spacing */}
-            <p className="text-white/40 text-[9px] sm:text-xs mt-2 sm:mt-8 uppercase tracking-widest">Trusted by collectors worldwide</p>
+            {/* Footer Text - Subtle and refined */}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.65 }}
+              className="text-white/30 sm:text-white/40 text-[8px] sm:text-xs mt-3 sm:mt-6 md:mt-8 uppercase tracking-[0.2em] font-medium"
+            >
+              Trusted by collectors worldwide
+            </motion.p>
           </motion.div>
         </div>
       </section>
