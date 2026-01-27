@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ProductCard } from "@/components/product-card";
 import { Filter, Search } from "lucide-react";
 
-export default function MarketplacePage() {
+function MarketplaceContent() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedCondition, setSelectedCondition] = useState<string>("all");
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
@@ -187,5 +187,19 @@ export default function MarketplacePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MarketplacePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black py-24">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <p className="text-white/70">Loading...</p>
+        </div>
+      </div>
+    }>
+      <MarketplaceContent />
+    </Suspense>
   );
 }
