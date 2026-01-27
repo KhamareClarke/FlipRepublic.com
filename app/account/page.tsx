@@ -120,6 +120,7 @@ export default function AccountPage() {
     };
 
     loadAccount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSignOut = async () => {

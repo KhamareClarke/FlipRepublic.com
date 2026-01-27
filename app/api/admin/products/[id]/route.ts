@@ -40,7 +40,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   }
 
   // Send email to seller if status changed to "active"
-  if (payload.status === "active" && currentProduct?.status !== "active") {
+  if (payload.status === "active" && currentProduct && currentProduct.status !== "active") {
     try {
       // Get seller info
       const { data: seller } = await supabase
