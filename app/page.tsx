@@ -40,7 +40,7 @@ export default function HomePage() {
 
   return (
     <div className="bg-black">
-      <section className="relative h-screen flex items-start sm:items-center justify-center overflow-hidden diagonal-lines pt-12 sm:pt-0">
+      <section className="relative h-screen flex items-start sm:items-center justify-center overflow-hidden diagonal-lines pt-0 sm:pt-0">
         <div className="absolute inset-0 bg-gradient-to-b from-black via-black/30 to-black z-10" />
         <div className="absolute inset-0 bg-gradient-radial from-gold/5 via-transparent to-transparent z-10" />
         <Image
@@ -50,24 +50,24 @@ export default function HomePage() {
           className="object-cover opacity-30"
           priority
         />
-        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center mt-0 sm:mt-0">
+        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center pt-14 sm:pt-0">
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 1, ease: "easeOut" }}
           >
-            <div className="mb-1 sm:mb-6 md:mb-8">
-              <div className="inline-block px-4 sm:px-6 py-1.5 sm:py-2 luxury-border rounded-full mb-1 sm:mb-4 md:mb-6">
+            <div className="mb-0 sm:mb-6 md:mb-8">
+              <div className="inline-block px-4 sm:px-6 py-1 sm:py-2 luxury-border rounded-full mb-0 sm:mb-4 md:mb-6">
                 <span className="text-gold text-[10px] sm:text-xs uppercase tracking-wider-luxury font-semibold">Est. 2024 • Invitation Only</span>
               </div>
             </div>
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl mb-1 sm:mb-6 md:mb-8 leading-[0.95] font-black tracking-tight">
+            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl mb-0 sm:mb-6 md:mb-8 leading-[0.95] font-black tracking-tight">
               <span className="text-gradient-luxury text-luxury-shadow block">THE PRIVATE</span>
               <span className="text-gradient-luxury text-luxury-shadow block">MARKET</span>
-              <span className="text-gradient-luxury text-luxury-shadow block mt-0.5 sm:mt-3">FOR ELITE RESALE</span>
+              <span className="text-gradient-luxury text-luxury-shadow block mt-0 sm:mt-3">FOR ELITE RESALE</span>
             </h1>
-            <div className="max-w-3xl mx-auto mb-2 sm:mb-8 md:mb-12">
-              <p className="text-white/90 text-base sm:text-lg md:text-xl lg:text-2xl mb-2 sm:mb-6 leading-relaxed font-light tracking-wide px-2">
+            <div className="max-w-3xl mx-auto mb-1 sm:mb-8 md:mb-12">
+              <p className="text-white/90 text-base sm:text-lg md:text-xl lg:text-2xl mb-1 sm:mb-6 leading-relaxed font-light tracking-wide px-2">
                 Where institutional-grade authentication meets
                 <span className="text-gradient-gold font-semibold"> private luxury commerce</span>
               </p>
