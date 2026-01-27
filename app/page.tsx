@@ -71,7 +71,7 @@ export default function HomePage() {
                 Where institutional-grade authentication meets
                 <span className="text-gradient-gold font-semibold"> private luxury commerce</span>
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 md:gap-12 text-xs text-white/50 mt-6 sm:mt-8">
+              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-8 md:gap-12 text-xs text-white/50 mt-3 sm:mt-8">
                 <div className="flex items-center gap-2.5">
                   <div className="w-1 h-1 bg-gold/60 rounded-full"></div>
                   <span className="uppercase tracking-widest">Zero Counterfeits</span>
@@ -86,7 +86,7 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 justify-center items-center">
               <Link href="/marketplace" className="w-full sm:w-auto">
                 <Button size="lg" variant="primary" className="w-full sm:min-w-[240px]">
                   Enter Marketplace
@@ -98,7 +98,7 @@ export default function HomePage() {
                 </Button>
               </Link>
             </div>
-            <p className="text-white/40 text-[10px] sm:text-xs mt-6 sm:mt-8 uppercase tracking-widest">Trusted by collectors worldwide</p>
+            <p className="text-white/40 text-[10px] sm:text-xs mt-3 sm:mt-8 uppercase tracking-widest">Trusted by collectors worldwide</p>
           </motion.div>
         </div>
       </section>
