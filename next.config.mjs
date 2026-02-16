@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/seller/login',
+        destination: 'https://flip-republic-com.vercel.app/login',
+        permanent: false,
+      },
+    ];
+  },
   images: {
     domains: ['images.unsplash.com'],
     remotePatterns: [
