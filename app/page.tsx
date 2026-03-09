@@ -6,6 +6,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/product-card";
+import { Container } from "@/components/ui/container";
 import { ShieldCheck, Award, Lock, Package } from "lucide-react";
 
 export default function HomePage() {
@@ -50,7 +51,7 @@ export default function HomePage() {
           className="object-cover opacity-30"
           priority
         />
-        <div className="relative z-20 max-w-5xl mx-auto px-4 sm:px-6 text-center pt-[64px] sm:pt-0">
+        <Container size="narrow" className="relative z-20 text-center pt-[64px] sm:pt-0">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -138,10 +139,11 @@ export default function HomePage() {
               Trusted by collectors worldwide
             </motion.p>
           </motion.div>
-        </div>
+        </Container>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 md:py-32">
+      <section className="py-[var(--section-py)] sm:py-[var(--section-py-lg)]">
+        <Container size="wide">
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -174,10 +176,11 @@ export default function HomePage() {
             </Button>
           </Link>
         </div>
+        </Container>
       </section>
 
-      <section className="bg-black-soft py-16 sm:py-24 md:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <section className="bg-black-soft py-[var(--section-py)] sm:py-[var(--section-py-lg)]">
+        <Container size="wide">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -224,10 +227,11 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
-        </div>
+        </Container>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 md:py-32">
+      <section className="py-[var(--section-py)] sm:py-[var(--section-py-lg)]">
+        <Container size="wide">
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -270,10 +274,11 @@ export default function HomePage() {
             );
           })}
         </div>
+        </Container>
       </section>
 
-      <section className="bg-black-soft py-16 sm:py-24 md:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <section className="bg-black-soft py-[var(--section-py)] sm:py-[var(--section-py-lg)]">
+        <Container size="wide">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -337,7 +342,7 @@ export default function HomePage() {
               </Button>
             </Link>
           </div>
-        </div>
+        </Container>
       </section>
 
       <section className="relative py-32 overflow-hidden">
@@ -348,7 +353,7 @@ export default function HomePage() {
           fill
           className="object-cover opacity-20"
         />
-        <div className="relative z-20 max-w-4xl mx-auto px-6 text-center">
+        <Container size="narrow" className="relative z-20 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -374,7 +379,7 @@ export default function HomePage() {
               </Link>
             </div>
           </motion.div>
-        </div>
+        </Container>
       </section>
     </div>
   );

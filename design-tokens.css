@@ -1,0 +1,44 @@
+/**
+ * FlipRepublic Design Tokens
+ * Structural template aligned with UAE Private Investor.
+ * No brand colors – platform keeps its own palette.
+ */
+
+:root {
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 48px;
+  --space-6: 64px;
+
+  --text-hero: clamp(2rem, 4vw, 3.5rem);
+  --text-section: clamp(1.5rem, 2.5vw, 2.25rem);
+  --text-subsection: clamp(1.125rem, 1.5vw, 1.5rem);
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+
+  --font-weight-hero: 800;
+  --font-weight-section: 700;
+  --font-weight-subsection: 600;
+  --font-weight-body: 400;
+
+  --radius-standard: 12px;
+  --radius-card: 12px;
+  --radius-button: 12px;
+  --radius-input: 12px;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  --container-main: 1200px;
+  --container-wide: 1400px;
+  --container-narrow: 896px;
+  --container-content: 1024px;
+
+  --section-py: 64px;
+  --section-py-sm: 48px;
+  --section-py-lg: 80px;
+}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Container } from "@/components/ui/container";
 
 export function Footer() {
   const sections = [
@@ -41,7 +42,7 @@ export function Footer() {
 
   return (
     <footer className="premium-card border-t-0 mt-32 diagonal-lines">
-      <div className="max-w-7xl mx-auto px-6 py-16">
+      <Container size="wide" className="py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-12 mb-16">
           {sections.map((section) => (
             <div key={section.title}>
@@ -85,7 +86,7 @@ export function Footer() {
             </div>
           </div>
         </div>
-      </div>
+      </Container>
     </footer>
   );
 }
