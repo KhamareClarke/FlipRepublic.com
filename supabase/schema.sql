@@ -58,6 +58,10 @@ create table if not exists products (
   description text,
   colorway text,
   release_year int,
+  images_verified_at timestamptz,
+  sku text,
+  stock_quantity int not null default 1,
+  track_inventory boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -66,6 +70,39 @@ create table if not exists product_images (
   product_id uuid not null references products(id) on delete cascade,
   url text not null,
   sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists product_reviews (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references products(id) on delete cascade,
+  buyer_id uuid not null references auth.users(id) on delete cascade,
+  order_id uuid not null references orders(id) on delete cascade,
+  rating int not null check (rating >= 1 and rating <= 5),
+  body text not null default '',
+  buyer_username text not null default '',
+  created_at timestamptz not null default now(),
+  constraint product_reviews_order_unique unique (order_id)
+);
+
+create table if not exists conversations (
+  id uuid primary key default gen_random_uuid(),
+  buyer_id uuid not null references auth.users(id) on delete cascade,
+  seller_id uuid not null references auth.users(id) on delete cascade,
+  product_id uuid references products(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists conversations_unique_thread
+  on conversations (buyer_id, seller_id, (coalesce(product_id, '00000000-0000-0000-0000-000000000000'::uuid)));
+
+create table if not exists messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references conversations(id) on delete cascade,
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  body text not null,
+  read_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -92,9 +129,10 @@ create table if not exists orders (
   seller_id uuid not null references profiles(user_id) on delete cascade,
   product_id uuid not null references products(id) on delete cascade,
   amount numeric(10, 2) not null,
-  status text not null default 'paid' check (status in ('paid', 'shipped', 'completed', 'refunded')),
+  status text not null default 'paid' check (status in ('paid', 'shipped', 'completed', 'refunded', 'cancelled')),
   stripe_session_id text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists saved_products (
@@ -194,3 +232,8 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_user();
+
+-- === Extended by migrations (run SQL in Supabase): analytics, escrow, Stripe refund ids, category.filter_hints ===
+-- See: supabase/migrations/20260515120000_analytics_search_escrow.sql
+--      supabase/migrations/20260515140000_stripe_escrow_rls_hints.sql
+--      supabase/migrations/20260515170000_inventory_coupons.sql

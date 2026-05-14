@@ -8,6 +8,7 @@ import { ProductCard } from "@/components/product-card";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getAccessToken } from "@/lib/supabase/session";
 import { formatPrice } from "@/lib/utils";
+import { OrderTimeline } from "@/components/order-timeline";
 
 type SavedProductItem = {
   product: any;
@@ -20,8 +21,11 @@ type OrderItem = {
   amount: number;
   status: string;
   created_at: string;
+  updated_at?: string | null;
+  payout_release_at?: string | null;
+  escrow_status?: string | null;
   product: any;
-  seller: { username: string | null } | null;
+  seller: { username: string | null; is_verified?: boolean; is_admin_approved?: boolean } | null;
 };
 
 type OfferItem = {
@@ -45,6 +49,12 @@ export default function AccountPage() {
   const [selectedOffer, setSelectedOffer] = useState<OfferItem | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [disputeOrder, setDisputeOrder] = useState<OrderItem | null>(null);
+  const [disputeStatement, setDisputeStatement] = useState("");
+  const [disputeEvidence, setDisputeEvidence] = useState("");
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
+  const [disputeError, setDisputeError] = useState<string | null>(null);
+  const [myDisputes, setMyDisputes] = useState<any[]>([]);
   const [addressData, setAddressData] = useState({
     name: "",
     address: "",
@@ -53,6 +63,9 @@ export default function AccountPage() {
     country: "United Kingdom",
     phone: "",
   });
+  const [checkoutCoupon, setCheckoutCoupon] = useState("");
+  const [couponPreview, setCouponPreview] = useState<{ discount: number; final: number } | null>(null);
+  const [couponApplyLoading, setCouponApplyLoading] = useState(false);
 
   useEffect(() => {
     const loadAccount = async () => {
@@ -97,18 +110,21 @@ export default function AccountPage() {
         // Continue loading account page if check fails
       }
 
-      const [savedResponse, ordersResponse, offersResponse] = await Promise.all([
+      const [savedResponse, ordersResponse, offersResponse, disputesRes] = await Promise.all([
         fetch("/api/saved-products", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/offers", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/disputes", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       const savedData = await savedResponse.json();
       const ordersData = await ordersResponse.json();
       const offersData = await offersResponse.json();
+      const disputesData = disputesRes.ok ? await disputesRes.json() : { disputes: [] };
       
       setSavedProducts(savedData.savedProducts ?? []);
       setOrders(ordersData.orders ?? []);
+      setMyDisputes(disputesData.disputes ?? []);
       
       // Filter only accepted offers for the buyer (offers API returns offers where user is buyer or seller)
       // We only want offers where the user is the buyer and status is accepted
@@ -127,6 +143,45 @@ export default function AccountPage() {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
     window.location.href = "/";
+  };
+
+  const submitDispute = async () => {
+    if (!disputeOrder) return;
+    const token = await getAccessToken();
+    if (!token) return;
+    setDisputeSubmitting(true);
+    setDisputeError(null);
+    const evidenceUrls = disputeEvidence
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 10);
+    const res = await fetch("/api/disputes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        orderId: disputeOrder.id,
+        statement: disputeStatement.trim(),
+        evidenceUrls,
+      }),
+    });
+    const data = await res.json();
+    setDisputeSubmitting(false);
+    if (!res.ok) {
+      setDisputeError(data.error ?? "Could not open dispute.");
+      return;
+    }
+    setDisputeOrder(null);
+    setDisputeStatement("");
+    setDisputeEvidence("");
+    const ordersResponse = await fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } });
+    const ordersData = await ordersResponse.json();
+    setOrders(ordersData.orders ?? []);
+    const dr = await fetch("/api/disputes", { headers: { Authorization: `Bearer ${token}` } });
+    if (dr.ok) {
+      const dj = await dr.json();
+      setMyDisputes(dj.disputes ?? []);
+    }
   };
 
   if (loading) {
@@ -164,11 +219,16 @@ export default function AccountPage() {
         </div>
 
         <section className="space-y-4 sm:space-y-6">
-          <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
             <h2 className="font-serif text-2xl sm:text-3xl text-gold">Saved Products</h2>
+            <div className="flex items-center gap-3">
             {savedProducts.length > 0 && (
               <p className="text-white/50 text-xs sm:text-sm">{savedProducts.length} saved</p>
             )}
+            <Link href="/saved" className="text-gold/80 hover:text-gold text-xs sm:text-sm uppercase tracking-wider font-semibold">
+              Saved page →
+            </Link>
+            </div>
           </div>
           {savedProducts.length === 0 ? (
             <div className="text-center py-12 border border-white/10 bg-white/5 rounded">
@@ -181,25 +241,16 @@ export default function AccountPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {savedProducts.map((item) =>
                 item.product ? (
-                  <div key={item.product.id} className="relative group">
-                    <ProductCard product={item.product} />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={async () => {
-                        const token = await getAccessToken();
-                        if (!token) return;
-                        await fetch(`/api/saved-products?productId=${item.product.id}`, {
-                          method: "DELETE",
-                          headers: { Authorization: `Bearer ${token}` },
-                        });
-                        setSavedProducts(savedProducts.filter((p) => p.product?.id !== item.product.id));
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
+                  <ProductCard
+                    key={item.product.id}
+                    product={item.product}
+                    isSaved
+                    onWishlistChange={(productId, saved) => {
+                      if (!saved) {
+                        setSavedProducts((prev) => prev.filter((p) => p.product?.id !== productId));
+                      }
+                    }}
+                  />
                 ) : null
               )}
             </div>
@@ -272,6 +323,24 @@ export default function AccountPage() {
         )}
 
         <section className="space-y-4 sm:space-y-6">
+          <h2 className="font-serif text-2xl sm:text-3xl text-gold">Your disputes</h2>
+          {myDisputes.length === 0 ? (
+            <p className="text-white/50 text-sm">No active disputes.</p>
+          ) : (
+            <ul className="space-y-2 text-sm border border-white/10 bg-white/5 p-4 rounded">
+              {myDisputes.map((d: any) => (
+                <li key={d.id} className="flex justify-between gap-2 border-b border-white/5 pb-2 last:border-0">
+                  <span className="text-white/80 truncate">
+                    Order {(d.order as any)?.id?.slice(0, 8)} · {(d.order as any)?.product?.name ?? "—"}
+                  </span>
+                  <span className="text-gold/90 shrink-0 uppercase text-xs">{d.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-2xl sm:text-3xl text-gold">Order History</h2>
             {orders.length > 0 && (
@@ -288,50 +357,147 @@ export default function AccountPage() {
           ) : (
             <div className="space-y-3 sm:space-y-4">
               {orders.map((order) => (
-                <Link
+                <div
                   key={order.id}
-                  href={`/product/${order.product_id}`}
-                  className="flex flex-col md:flex-row gap-3 sm:gap-4 p-4 sm:p-6 border border-white/10 bg-white/5 hover:border-gold/50 transition-colors"
+                  className="flex flex-col gap-3 sm:gap-4 p-4 sm:p-6 border border-white/10 bg-white/5 hover:border-gold/50 transition-colors"
                 >
-                  <div className="flex-shrink-0">
-                    <img
-                      src={
-                        order.product?.images?.[0]?.url ||
-                        "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=80"
-                      }
-                      alt={order.product?.name}
-                      className="w-20 h-20 sm:w-24 sm:h-24 object-cover border border-white/20"
-                    />
-                  </div>
-                  <div className="flex-1 flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium mb-1 text-sm sm:text-base truncate">
-                        {order.product?.name ?? "Order"}
-                      </p>
-                      <p className="text-white/50 text-xs sm:text-sm mb-2">
-                        {order.product?.brand} • {order.product?.condition} • Size {order.product?.size}
-                      </p>
-                      <p className="text-white/40 text-xs">
-                        Seller: {order.seller?.username ?? "Verified Seller"} •{" "}
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4 sm:gap-6">
-                      <div className="text-right">
-                        <p className="text-gold font-semibold text-base sm:text-lg">
-                          {formatPrice(Number(order.amount))}
+                  <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
+                    <Link href={`/product/${order.product_id}`} className="flex-shrink-0 block">
+                      <img
+                        src={
+                          order.product?.images?.[0]?.url ||
+                          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=80"
+                        }
+                        alt={order.product?.name}
+                        className="w-20 h-20 sm:w-24 sm:h-24 object-cover border border-white/20 hover:border-gold/40 transition-colors"
+                      />
+                    </Link>
+                    <div className="flex-1 flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <Link href={`/product/${order.product_id}`} className="group">
+                          <p className="text-white font-medium mb-1 text-sm sm:text-base truncate group-hover:text-gold transition-colors">
+                            {order.product?.name ?? "Order"}
+                          </p>
+                        </Link>
+                        <p className="text-white/50 text-xs sm:text-sm mb-2">
+                          {order.product?.brand} • {order.product?.condition} • Size {order.product?.size}
                         </p>
-                        <p className="text-white/60 text-xs uppercase tracking-wider mt-1">
-                          {order.status}
+                        <p className="text-white/40 text-xs flex flex-wrap items-center gap-2">
+                          <span>
+                            Seller: {order.seller?.username ?? "Verified Seller"}
+                            {(order.seller?.is_verified ?? order.seller?.is_admin_approved) && (
+                              <span className="text-gold/90"> · Verified seller</span>
+                            )}
+                          </span>
+                          <span>· {new Date(order.created_at).toLocaleDateString()}</span>
                         </p>
+                        {(order.payout_release_at || order.escrow_status === "holding") && (
+                          <p className="text-white/35 text-[10px] mt-1">
+                            Payout hold until{" "}
+                            {order.payout_release_at
+                              ? new Date(order.payout_release_at).toLocaleDateString()
+                              : "released"}
+                            {order.escrow_status ? ` · ${order.escrow_status}` : ""}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 shrink-0">
+                        {(order.status === "paid" || order.status === "shipped") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto whitespace-nowrap"
+                            onClick={() => {
+                              setDisputeOrder(order);
+                              setDisputeStatement("");
+                              setDisputeEvidence("");
+                              setDisputeError(null);
+                            }}
+                          >
+                            Open dispute
+                          </Button>
+                        )}
+                        {order.status === "completed" && (
+                          <Link href={`/product/${order.product_id}#reviews`}>
+                            <Button variant="outline" size="sm" className="w-full sm:w-auto whitespace-nowrap">
+                              Rate purchase
+                            </Button>
+                          </Link>
+                        )}
+                        <div className="text-right sm:min-w-[5rem]">
+                          <p className="text-gold font-semibold text-base sm:text-lg">
+                            {formatPrice(Number(order.amount))}
+                          </p>
+                          <p className="text-white/60 text-xs uppercase tracking-wider mt-1">
+                            {order.status}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </Link>
+                  <OrderTimeline
+                    status={order.status}
+                    createdAt={order.created_at}
+                    updatedAt={order.updated_at}
+                  />
+                </div>
               ))}
             </div>
           )}
         </section>
+
+        {disputeOrder && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 sm:p-6">
+            <div className="bg-black border-2 border-gold rounded-lg p-4 sm:p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-serif text-2xl text-gold">Open dispute</h2>
+                <button
+                  type="button"
+                  onClick={() => setDisputeOrder(null)}
+                  className="text-white/60 hover:text-white text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-white/50 text-sm">
+                Order #{disputeOrder.id.slice(0, 8)} · {disputeOrder.product?.name}
+              </p>
+              {disputeError && <p className="text-red-400 text-sm">{disputeError}</p>}
+              <div>
+                <label className="block text-white/70 text-sm mb-2">Describe the issue *</label>
+                <textarea
+                  value={disputeStatement}
+                  onChange={(e) => setDisputeStatement(e.target.value)}
+                  rows={4}
+                  className="w-full bg-black border border-white/20 px-3 py-2 text-white text-sm focus:border-gold focus:outline-none"
+                  placeholder="What went wrong?"
+                />
+              </div>
+              <div>
+                <label className="block text-white/70 text-sm mb-2">Evidence URLs (one per line, optional)</label>
+                <textarea
+                  value={disputeEvidence}
+                  onChange={(e) => setDisputeEvidence(e.target.value)}
+                  rows={3}
+                  className="w-full bg-black border border-white/20 px-3 py-2 text-white text-sm focus:border-gold focus:outline-none"
+                  placeholder="https://…"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setDisputeOrder(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={disputeSubmitting || disputeStatement.trim().length < 10}
+                  onClick={() => void submitDispute()}
+                >
+                  {disputeSubmitting ? "Submitting…" : "Submit dispute"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Address Collection Modal */}
         {showAddressForm && selectedOffer && (
@@ -344,6 +510,7 @@ export default function AccountPage() {
                     setShowAddressForm(false);
                     setPurchaseError(null);
                     setSelectedOffer(null);
+                    setCouponPreview(null);
                   }}
                   className="text-white/60 hover:text-white text-xl"
                 >
@@ -423,6 +590,62 @@ export default function AccountPage() {
                     placeholder="+44 20 1234 5678"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-white/70 text-sm mb-2">Coupon code (optional)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={checkoutCoupon}
+                      onChange={(e) => {
+                        setCheckoutCoupon(e.target.value);
+                        setCouponPreview(null);
+                      }}
+                      className="flex-1 bg-black border border-white/20 px-4 py-2 text-white focus:border-gold focus:outline-none"
+                      placeholder="e.g. WELCOME10"
+                      autoComplete="off"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={couponApplyLoading || !checkoutCoupon.trim() || !selectedOffer}
+                      onClick={async () => {
+                        const productId = selectedOffer?.product_id || selectedOffer?.product?.id;
+                        if (!productId || !selectedOffer) return;
+                        setCouponApplyLoading(true);
+                        setPurchaseError(null);
+                        try {
+                          const res = await fetch("/api/coupons/validate", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              code: checkoutCoupon.trim(),
+                              productId,
+                              subtotal: Number(selectedOffer.offer_price),
+                            }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) {
+                            setCouponPreview(null);
+                            setPurchaseError(data.error || "Invalid coupon");
+                          } else {
+                            setCouponPreview({ discount: data.discountAmount, final: data.finalAmount });
+                            setPurchaseError(null);
+                          }
+                        } finally {
+                          setCouponApplyLoading(false);
+                        }
+                      }}
+                    >
+                      {couponApplyLoading ? "…" : "Apply"}
+                    </Button>
+                  </div>
+                  {couponPreview && (
+                    <p className="text-xs text-gold mt-2">
+                      −{formatPrice(couponPreview.discount)} · You pay {formatPrice(couponPreview.final)}
+                    </p>
+                  )}
+                </div>
               </div>
               
               {purchaseError && (
@@ -439,6 +662,7 @@ export default function AccountPage() {
                     setShowAddressForm(false);
                     setPurchaseError(null);
                     setSelectedOffer(null);
+                    setCouponPreview(null);
                   }}
                 >
                   Cancel
@@ -481,6 +705,7 @@ export default function AccountPage() {
                           shippingCountry: addressData.country,
                           shippingPhone: addressData.phone,
                           buyerName: addressData.name,
+                          couponCode: checkoutCoupon.trim() || undefined,
                         }),
                       });
                       

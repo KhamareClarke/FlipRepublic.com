@@ -30,6 +30,9 @@ alter table orders enable row level security;
 alter table saved_products enable row level security;
 alter table payouts enable row level security;
 alter table admin_actions enable row level security;
+alter table product_reviews enable row level security;
+alter table conversations enable row level security;
+alter table messages enable row level security;
 
 -- Verification codes table
 alter table verification_codes enable row level security;
@@ -182,3 +185,77 @@ create policy "Payouts admin write" on payouts
 drop policy if exists "Admin actions admin only" on admin_actions;
 create policy "Admin actions admin only" on admin_actions
   for all using (is_admin()) with check (is_admin());
+
+-- Product reviews (marketplace)
+drop policy if exists "Product reviews read all" on product_reviews;
+create policy "Product reviews read all" on product_reviews
+  for select using (true);
+
+drop policy if exists "Product reviews insert buyer self" on product_reviews;
+create policy "Product reviews insert buyer self" on product_reviews
+  for insert with check (buyer_id = auth.uid());
+
+drop policy if exists "Product reviews update own" on product_reviews;
+create policy "Product reviews update own" on product_reviews
+  for update using (buyer_id = auth.uid())
+  with check (buyer_id = auth.uid());
+
+-- Messaging
+drop policy if exists "Conversations read participants" on conversations;
+create policy "Conversations read participants" on conversations
+  for select using (buyer_id = auth.uid() or seller_id = auth.uid() or is_admin());
+
+drop policy if exists "Conversations insert buyer" on conversations;
+create policy "Conversations insert participant" on conversations
+  for insert with check (
+    (auth.uid() = buyer_id or auth.uid() = seller_id)
+    and buyer_id <> seller_id
+  );
+
+drop policy if exists "Conversations update participants" on conversations;
+create policy "Conversations update participants" on conversations
+  for update using (buyer_id = auth.uid() or seller_id = auth.uid() or is_admin())
+  with check (buyer_id = auth.uid() or seller_id = auth.uid() or is_admin());
+
+drop policy if exists "Messages read conversation" on messages;
+create policy "Messages read conversation" on messages
+  for select using (
+    exists (
+      select 1 from conversations c
+      where c.id = messages.conversation_id
+      and (c.buyer_id = auth.uid() or c.seller_id = auth.uid() or is_admin())
+    )
+  );
+
+drop policy if exists "Messages insert sender" on messages;
+create policy "Messages insert sender" on messages
+  for insert with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from conversations c
+      where c.id = messages.conversation_id
+      and (c.buyer_id = auth.uid() or c.seller_id = auth.uid())
+    )
+  );
+
+drop policy if exists "Messages update read receipts" on messages;
+create policy "Messages update read receipts" on messages
+  for update using (
+    exists (
+      select 1 from conversations c
+      where c.id = messages.conversation_id
+      and (c.buyer_id = auth.uid() or c.seller_id = auth.uid() or is_admin())
+    )
+  )
+  with check (
+    exists (
+      select 1 from conversations c
+      where c.id = messages.conversation_id
+      and (c.buyer_id = auth.uid() or c.seller_id = auth.uid() or is_admin())
+    )
+  );
+
+-- Analytics / disputes: RLS on (no policies) so anon/authenticated cannot read/write via PostgREST; APIs use service role.
+alter table if exists product_view_events enable row level security;
+alter table if exists search_events enable row level security;
+alter table if exists order_disputes enable row level security;

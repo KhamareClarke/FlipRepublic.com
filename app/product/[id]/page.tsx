@@ -3,18 +3,38 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { ShieldCheck, Award, Package, ArrowLeft, Heart } from "lucide-react";
+import { ShieldCheck, Award, Package, ArrowLeft, Heart, Handshake, MessageCircle } from "lucide-react";
 import { getAccessToken } from "@/lib/supabase/session";
+import { ProductReviewsSection } from "@/components/product-reviews";
+import { SellerVerificationCallout } from "@/components/seller-verification-callout";
+
+function pickLatestOfferForProduct(offers: any[] | undefined, productId: string) {
+  const forProduct = (offers ?? []).filter(
+    (offer: any) =>
+      offer.product_id === productId ||
+      offer.product?.id === productId ||
+      (typeof offer.product === "object" && offer.product?.id === productId)
+  );
+  if (forProduct.length === 0) return null;
+  return forProduct.reduce((latest: any, o: any) => {
+    const t = new Date(o.created_at).getTime();
+    const lt = new Date(latest.created_at).getTime();
+    return t > lt ? o : latest;
+  });
+}
 
 export default function ProductPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [selectedImage, setSelectedImage] = useState(0);
   const [product, setProduct] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [offerPrice, setOfferPrice] = useState("");
+  const [offerSubmitting, setOfferSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -24,6 +44,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [isSeller, setIsSeller] = useState(false);
+  const [msgThreadLoading, setMsgThreadLoading] = useState(false);
   const [addressData, setAddressData] = useState({
     name: "",
     address: "",
@@ -32,7 +53,22 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     country: "United Kingdom",
     phone: "",
   });
+  const [checkoutCoupon, setCheckoutCoupon] = useState("");
+  const [couponPreview, setCouponPreview] = useState<{ discount: number; final: number } | null>(null);
+  const [couponApplyLoading, setCouponApplyLoading] = useState(false);
   const images = product?.images ?? [];
+
+  const inStock =
+    product &&
+    product.status === "active" &&
+    (product.track_inventory === false || Number(product.stock_quantity ?? 0) > 0);
+
+  const subtotalForCheckout =
+    userOffer && userOffer.status === "accepted"
+      ? Number(userOffer.offer_price)
+      : product
+        ? Number(product.price)
+        : 0;
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -43,6 +79,15 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     };
 
     loadProduct();
+  }, [params.id]);
+
+  useEffect(() => {
+    if (!params.id) return;
+    fetch("/api/analytics/product-view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: params.id }),
+    }).catch(() => {});
   }, [params.id]);
 
   useEffect(() => {
@@ -81,14 +126,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       const savedItems = savedData.savedProducts ?? [];
       setSaved(savedItems.some((item: any) => item.product?.id === params.id));
       
-      // Find user's offer for this product (check both product_id and nested product.id)
-      const myOffer = offersData.offers?.find(
-        (offer: any) => 
-          offer.product_id === params.id || 
-          offer.product?.id === params.id ||
-          (typeof offer.product === 'object' && offer.product?.id === params.id)
-      );
-      setUserOffer(myOffer || null);
+      const myOffer = pickLatestOfferForProduct(offersData.offers, params.id);
+      setUserOffer(myOffer);
     };
 
     loadSaved();
@@ -120,7 +159,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           productId: product.id,
           amount: useOfferPrice,
           shippingAddress: addressData.address,
@@ -129,6 +168,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           shippingCountry: addressData.country,
           shippingPhone: addressData.phone,
           buyerName: addressData.name,
+          couponCode: checkoutCoupon.trim() || undefined,
         }),
       });
       
@@ -159,55 +199,102 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       setTimeout(() => setOfferMessage(null), 3000);
       return;
     }
-    
+
     const token = await getAccessToken();
     if (!token) {
       window.location.href = "/login?redirect=/product/" + params.id;
       return;
     }
 
-    if (!offerPrice || Number(offerPrice) <= 0) {
+    const amount = Number(offerPrice);
+    if (!offerPrice || Number.isNaN(amount) || amount < 1) {
+      setOfferMessage("❌ Enter a valid offer of at least £1.");
+      setTimeout(() => setOfferMessage(null), 4000);
       return;
     }
 
-    setOfferMessage("Submitting offer...");
-    
-    const response = await fetch("/api/offers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        productId: product.id,
-        offerPrice: Number(offerPrice),
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      setOfferMessage("✅ Offer submitted! Once the seller approves, we will send you an email.");
-      setOfferPrice("");
-      // Reload offers to show the new one
-      const offersResponse = await fetch("/api/offers", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const offersData = await offersResponse.json();
-      const myOffer = offersData.offers?.find(
-        (offer: any) => 
-          offer.product_id === product.id || 
-          offer.product?.id === product.id ||
-          (typeof offer.product === 'object' && offer.product?.id === product.id)
-      );
-      setUserOffer(myOffer || null);
-      
-      // Clear message after 5 seconds
+    const listPrice = Number(product.price);
+    if (!Number.isNaN(listPrice) && amount >= listPrice) {
+      setOfferMessage("❌ Your offer must be below the list price. Use Purchase Now to pay the listed amount.");
       setTimeout(() => setOfferMessage(null), 5000);
-    } else {
-      if (data.code === "DUPLICATE_OFFER") {
-        setOfferMessage("⚠️ You already have a pending offer on this product. Please wait for the seller to respond.");
+      return;
+    }
+
+    setOfferSubmitting(true);
+    setOfferMessage("Submitting offer…");
+
+    try {
+      const response = await fetch("/api/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          productId: product.id,
+          offerPrice: amount,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setOfferMessage("✅ Offer submitted. The seller will be notified—you will get an email when they respond.");
+        setOfferPrice("");
+        const offersResponse = await fetch("/api/offers", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const offersData = await offersResponse.json();
+        setUserOffer(pickLatestOfferForProduct(offersData.offers, product.id));
+        setTimeout(() => setOfferMessage(null), 6000);
+      } else if (data.code === "DUPLICATE_OFFER") {
+        setOfferMessage("⚠️ You already have a pending offer on this product. Wait for the seller to respond.");
+        setTimeout(() => setOfferMessage(null), 6000);
+      } else if (data.code === "OFFER_ALREADY_ACCEPTED") {
+        setOfferMessage("⚠️ You already have an accepted offer. Complete checkout from this page.");
+        setTimeout(() => setOfferMessage(null), 6000);
       } else {
         setOfferMessage(`❌ ${data.error || "Failed to submit offer"}`);
+        setTimeout(() => setOfferMessage(null), 6000);
       }
-      setTimeout(() => setOfferMessage(null), 5000);
+    } finally {
+      setOfferSubmitting(false);
+    }
+  };
+
+  const applyOfferPercent = (pct: number) => {
+    const list = Number(product?.price);
+    if (Number.isNaN(list) || list <= 0) return;
+    const raw = Math.floor(list * pct * 100) / 100;
+    const capped = Math.max(1, Math.min(raw, list - 0.01));
+    setOfferPrice(capped.toFixed(2));
+  };
+
+  const handleMessageSeller = async () => {
+    if (isSeller || !product?.seller?.user_id) return;
+    const token = await getAccessToken();
+    if (!token) {
+      window.location.href = "/login?redirect=/product/" + params.id;
+      return;
+    }
+    setMsgThreadLoading(true);
+    try {
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          otherUserId: product.seller.user_id,
+          productId: product.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error(data.error || "conversation failed");
+        return;
+      }
+      router.push(`/messages?c=${data.conversationId}`);
+    } finally {
+      setMsgThreadLoading(false);
     }
   };
 
@@ -363,6 +450,20 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   </span>
                 )}
               </div>
+              {product.status === "active" && !inStock && (
+                <p className="text-sm text-red-400/90 mb-2">Currently out of stock.</p>
+              )}
+              {(product.sku || product.track_inventory !== false) && (
+                <p className="text-xs text-white/50">
+                  {product.sku ? <>SKU: {product.sku}</> : null}
+                  {product.sku && product.track_inventory !== false ? " · " : null}
+                  {product.track_inventory !== false ? (
+                    <span className={Number(product.stock_quantity) <= 3 ? "text-gold" : ""}>
+                      Stock: {product.stock_quantity ?? 1}
+                    </span>
+                  ) : null}
+                </p>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -391,7 +492,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     variant="primary"
                     className="w-full"
                     onClick={() => setShowAddressForm(true)}
-                    disabled={purchasing}
+                    disabled={purchasing || !inStock}
                   >
                     Purchase Now at {formatPrice(Number(userOffer.offer_price))}
                   </Button>
@@ -402,10 +503,13 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   )}
                 </div>
               ) : userOffer && userOffer.status === "pending" ? (
-                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                  <p className="text-white/70 text-sm mb-2">You have a pending offer:</p>
-                  <p className="text-gold font-semibold">{formatPrice(Number(userOffer.offer_price))}</p>
-                  <p className="text-white/50 text-xs mt-2">Waiting for seller response...</p>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-5 space-y-2">
+                  <p className="text-white/70 text-sm">Your offer is with the seller</p>
+                  <p className="text-gold font-semibold text-lg">{formatPrice(Number(userOffer.offer_price))}</p>
+                  <p className="text-white/50 text-xs leading-relaxed">
+                    You will receive an email when they accept or decline. List price remains{" "}
+                    {formatPrice(Number(product.price))}.
+                  </p>
                 </div>
               ) : (
                 <>
@@ -414,37 +518,109 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     variant="primary"
                     className="w-full"
                     onClick={() => setShowAddressForm(true)}
-                    disabled={product.status !== "active" || purchasing}
+                    disabled={!inStock || purchasing}
                   >
-                    {product.status === "active" ? "Purchase Now" : "Unavailable"}
+                    {inStock ? "Purchase Now" : "Out of stock"}
                   </Button>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      type="number"
-                      min="1"
-                      value={offerPrice}
-                      onChange={(event) => setOfferPrice(event.target.value)}
-                      className="flex-1 bg-black border border-white/20 px-4 py-3 text-white text-sm sm:text-base focus:border-gold focus:outline-none transition-colors"
-                      placeholder="Offer amount"
-                    />
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      onClick={handleOffer}
-                      disabled={!offerPrice || product.status !== "active"}
-                      className="w-full sm:w-auto"
-                    >
-                      Submit Offer
-                    </Button>
+
+                  {userOffer?.status === "rejected" && (
+                    <div className="rounded-lg border border-white/15 bg-white/[0.04] p-4 text-sm text-white/70">
+                      <p className="font-medium text-white mb-1">Previous offer declined</p>
+                      <p>
+                        Your offer of {formatPrice(Number(userOffer.offer_price))} was not accepted. You can
+                        place a new offer below or buy at the list price.
+                      </p>
+                    </div>
+                  )}
+
+                  {(userOffer?.status === "countered" || userOffer?.status === "withdrawn") && (
+                    <div className="rounded-lg border border-gold/30 bg-gold/5 p-4 text-xs text-white/70">
+                      {userOffer.status === "withdrawn"
+                        ? "This offer was withdrawn. You can submit a new offer if the listing is still active."
+                        : "This offer was updated or countered. Check your email or account for the latest status before sending another offer."}
+                    </div>
+                  )}
+
+                  <div className="glass-effect rounded-lg p-5 sm:p-6 space-y-4 border border-gold/20">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-full bg-gold/10 p-2.5 shrink-0">
+                        <Handshake className="w-5 h-5 text-gold" />
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-lg text-gradient-gold font-semibold tracking-tight">
+                          Make an offer
+                        </h3>
+                        <p className="text-white/55 text-xs sm:text-sm mt-1 leading-relaxed">
+                          Negotiate privately with the seller. Offers must be below the list price. Sign in to
+                          submit—sellers respond from their dashboard.
+                        </p>
+                      </div>
+                    </div>
+
+                    {product.status === "active" && Number(product.price) > 1 && (
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-[10px] uppercase tracking-wider text-white/40 w-full sm:w-auto sm:mr-2">
+                          Quick offer
+                        </span>
+                        {[
+                          { label: "85%", pct: 0.85 },
+                          { label: "90%", pct: 0.9 },
+                          { label: "95%", pct: 0.95 },
+                        ].map(({ label, pct }) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => applyOfferPercent(pct)}
+                            disabled={offerSubmitting}
+                            className="rounded-md border border-white/15 bg-black/40 px-3 py-1.5 text-xs text-white/80 hover:border-gold/50 hover:text-gold transition-colors disabled:opacity-40"
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex-1 space-y-1.5">
+                        <label htmlFor="offer-amount" className="sr-only">
+                          Offer amount in GBP
+                        </label>
+                        <input
+                          id="offer-amount"
+                          type="number"
+                          inputMode="decimal"
+                          min={1}
+                          step="0.01"
+                          value={offerPrice}
+                          onChange={(event) => setOfferPrice(event.target.value)}
+                          className="w-full bg-black border border-white/20 px-4 py-3 text-white text-sm sm:text-base focus:border-gold focus:outline-none transition-colors rounded-md"
+                          placeholder="Your offer (£)"
+                        />
+                      </div>
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        onClick={handleOffer}
+                        disabled={!offerPrice || !inStock || product.status !== "active" || offerSubmitting}
+                        className="w-full sm:w-auto shrink-0 border-gold/40"
+                      >
+                        {offerSubmitting ? "Sending…" : "Submit offer"}
+                      </Button>
+                    </div>
                   </div>
+
                   {offerMessage && (
-                    <div className={`p-3 rounded text-sm ${
-                      offerMessage.includes("✅") 
-                        ? "bg-green-900/20 border border-green-500/50 text-green-400"
-                        : offerMessage.includes("⚠️")
-                        ? "bg-yellow-900/20 border border-yellow-500/50 text-yellow-400"
-                        : "bg-red-900/20 border border-red-500/50 text-red-400"
-                    }`}>
+                    <div
+                      className={`p-3 rounded-md text-sm border ${
+                        offerMessage.includes("✅")
+                          ? "bg-green-900/20 border-green-500/50 text-green-400"
+                          : offerMessage.includes("⚠️")
+                            ? "bg-yellow-900/20 border-yellow-500/50 text-yellow-400"
+                            : offerMessage.startsWith("Submitting")
+                              ? "bg-white/5 border-white/20 text-white/70"
+                              : "bg-red-900/20 border-red-500/50 text-red-400"
+                      }`}
+                    >
                       {offerMessage}
                     </div>
                   )}
@@ -487,25 +663,64 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
             <div className="glass-effect p-4 sm:p-6 rounded-lg">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h3 className="text-white font-semibold text-base sm:text-lg">Seller 👤</h3>
-              {product.seller?.is_verified && (
-                  <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-gold" />
+                <h3 className="text-white font-semibold text-base sm:text-lg">Seller</h3>
+                {(product.seller?.is_verified ?? product.seller?.is_admin_approved) && (
+                  <Badge variant="gold" className="flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                    <ShieldCheck className="w-3 h-3" />
+                    Verified
+                  </Badge>
                 )}
               </div>
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-white/50">Name</span>
-                <span className="text-white">{product.seller?.username ?? "Verified Seller"}</span>
+                  <span className="text-white">{product.seller?.username ?? "Verified Seller"}</span>
                 </div>
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-white/50">Rating</span>
-                <span className="text-gold">4.9 / 5.0</span>
+                  <span className="text-gold">4.9 / 5.0</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-white/50">Total Sales</span>
-                <span className="text-white">Trusted Seller</span>
+                  <span className="text-white">Trusted Seller</span>
                 </div>
               </div>
+              {(product.seller?.is_verified ?? product.seller?.is_admin_approved) ? (
+                <p className="text-white/55 text-xs leading-relaxed mt-4 pt-4 border-t border-white/10">
+                  This seller completed FlipRepublic identity and operations review. Listings still pass
+                  item-level authentication before they appear on the marketplace.
+                </p>
+              ) : (
+                <p className="text-white/45 text-xs leading-relaxed mt-4 pt-4 border-t border-white/10">
+                  Seller verification is in progress or not displayed for this account. The item listing
+                  itself may still carry an authentication badge where shown.
+                </p>
+              )}
+              {!isSeller && product.seller?.user_id && product.status === "active" && (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-gold/40"
+                    onClick={handleMessageSeller}
+                    disabled={msgThreadLoading}
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    {msgThreadLoading ? "Opening…" : "Message seller"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <SellerVerificationCallout
+              sellerUsername={product.seller?.username}
+              isSellerVerified={Boolean(product.seller?.is_verified ?? product.seller?.is_admin_approved)}
+              imagesVerifiedAt={product.images_verified_at}
+            />
+
+            <div id="reviews" className="scroll-mt-24">
+              <ProductReviewsSection productId={params.id} />
             </div>
 
             <div className="glass-gold p-4 sm:p-6 space-y-3 sm:space-y-4 rounded-lg animate-glow">
@@ -547,6 +762,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 onClick={() => {
                   setShowAddressForm(false);
                   setPurchaseError(null);
+                  setCouponPreview(null);
                 }}
                 className="text-white/60 hover:text-white text-xl"
               >
@@ -626,6 +842,61 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   placeholder="+44 20 1234 5678"
                 />
               </div>
+
+              <div>
+                <label className="block text-white/70 text-sm mb-2">Coupon code (optional)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={checkoutCoupon}
+                    onChange={(e) => {
+                      setCheckoutCoupon(e.target.value);
+                      setCouponPreview(null);
+                    }}
+                    className="flex-1 bg-black border border-white/20 px-4 py-2 text-white focus:border-gold focus:outline-none"
+                    placeholder="e.g. WELCOME10"
+                    autoComplete="off"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={couponApplyLoading || !checkoutCoupon.trim() || !product}
+                    onClick={async () => {
+                      if (!product) return;
+                      setCouponApplyLoading(true);
+                      setPurchaseError(null);
+                      try {
+                        const res = await fetch("/api/coupons/validate", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            code: checkoutCoupon.trim(),
+                            productId: product.id,
+                            subtotal: subtotalForCheckout,
+                          }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                          setCouponPreview(null);
+                          setPurchaseError(data.error || "Invalid coupon");
+                        } else {
+                          setCouponPreview({ discount: data.discountAmount, final: data.finalAmount });
+                          setPurchaseError(null);
+                        }
+                      } finally {
+                        setCouponApplyLoading(false);
+                      }
+                    }}
+                  >
+                    {couponApplyLoading ? "…" : "Apply"}
+                  </Button>
+                </div>
+                {couponPreview && (
+                  <p className="text-xs text-gold mt-2">
+                    −{formatPrice(couponPreview.discount)} · You pay {formatPrice(couponPreview.final)}
+                  </p>
+                )}
+              </div>
             </div>
             
             {purchaseError && (
@@ -641,6 +912,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 onClick={() => {
                   setShowAddressForm(false);
                   setPurchaseError(null);
+                  setCouponPreview(null);
                 }}
               >
                 Cancel

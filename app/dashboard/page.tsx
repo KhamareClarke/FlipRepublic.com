@@ -20,6 +20,7 @@ import {
   LogOut,
   MapPin,
 } from "lucide-react";
+import { OrderTimeline } from "@/components/order-timeline";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -28,8 +29,10 @@ export default function DashboardPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [offers, setOffers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [sellerDisputes, setSellerDisputes] = useState<any[]>([]);
   const [sellerProfile, setSellerProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [empireSuggestions, setEmpireSuggestions] = useState<any[]>([]);
 
   const loadDashboard = async () => {
     const token = await getAccessToken();
@@ -61,13 +64,16 @@ export default function DashboardPage() {
     // Store seller profile for display
     setSellerProfile(profile);
 
-    const [statsResponse, payoutsResponse, productsResponse, offersResponse, ordersResponse] =
+    const [statsResponse, payoutsResponse, productsResponse, offersResponse, ordersResponse, reviewSummaryResponse, disputesRes, empireSgRes] =
       await Promise.all([
         fetch("/api/dashboard", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/payouts", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/products?mine=true", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/offers", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/orders?view=seller", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/reviews/seller-summary", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/disputes", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/empire-os/suggestions", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
     const statsData = await statsResponse.json();
@@ -75,6 +81,14 @@ export default function DashboardPage() {
     const productsData = await productsResponse.json();
     const offersData = await offersResponse.json();
     const ordersData = await ordersResponse.json();
+    const reviewSummary = reviewSummaryResponse.ok ? await reviewSummaryResponse.json() : { avg: null, count: 0 };
+    const disputesData = disputesRes.ok ? await disputesRes.json() : { disputes: [] };
+    const empireSgData = empireSgRes.ok ? await empireSgRes.json() : { suggestions: [] };
+
+    const ratingLabel =
+      reviewSummary?.count > 0 && reviewSummary?.avg != null
+        ? `${reviewSummary.avg} / 5 · ${reviewSummary.count} ${reviewSummary.count === 1 ? "review" : "reviews"}`
+        : "No reviews yet";
 
     setStats([
       {
@@ -97,7 +111,7 @@ export default function DashboardPage() {
       },
       {
         label: "Seller Rating",
-        value: "4.9 / 5.0",
+        value: ratingLabel,
         icon: Star,
         change: "Live",
       },
@@ -106,6 +120,8 @@ export default function DashboardPage() {
     setProducts(productsData.products ?? []);
     setOffers(offersData.offers ?? []);
     setOrders(ordersData.orders ?? []);
+    setSellerDisputes(disputesData.disputes ?? []);
+    setEmpireSuggestions(empireSgData.suggestions ?? []);
     setLoading(false);
   };
 
@@ -166,12 +182,44 @@ export default function DashboardPage() {
               <Plus className="w-5 h-5 mr-2" />
               List New Item
             </Button>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => (window.location.href = "/dashboard/products/import")}
+            >
+              Bulk CSV import
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => (window.location.href = "/dashboard/coupons")}
+            >
+              Coupons
+            </Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => (window.location.href = "/dashboard/analytics")}>
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Analytics
+            </Button>
             <Button variant="outline" onClick={handleSignOut} className="w-full sm:w-auto">
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </Button>
           </div>
         </div>
+
+        {empireSuggestions.length > 0 && (
+          <div className="mb-8 border border-gold/30 bg-gold/5 p-4 sm:p-6">
+            <h2 className="font-serif text-lg sm:text-xl text-gold mb-3">Empire tips</h2>
+            <ul className="space-y-3 text-sm text-white/80">
+              {empireSuggestions.map((s: any) => (
+                <li key={s.id}>
+                  <p className="text-gold/90 text-xs uppercase tracking-wide">{s.suggestion_type}</p>
+                  <p>{s.message}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           {stats.map((stat, index) => {
@@ -198,6 +246,11 @@ export default function DashboardPage() {
         <div className="mb-12 sm:mb-16">
           <div className="flex items-center justify-between mb-6 sm:mb-8">
             <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl text-gold">Recent Payouts</h2>
+            <p className="text-white/50 text-xs sm:text-sm max-w-xl mt-2">
+              Seller payouts are sent by bank transfer to the account on file after the escrow window. Buyers may see
+              Apple Pay, Google Pay, Stripe Link, and optionally PayPal at checkout depending on your Stripe settings
+              and domain verification.
+            </p>
           </div>
           <div className="bg-white/5 border border-white/10 overflow-hidden overflow-x-auto">
             <table className="w-full min-w-[600px]">
@@ -444,6 +497,25 @@ export default function DashboardPage() {
             )}
           </div>
 
+          <div className="bg-white/5 border border-white/10 p-4 sm:p-6 mb-6">
+            <h2 className="font-serif text-xl sm:text-2xl text-gold mb-3">Disputes on your orders</h2>
+            {sellerDisputes.length === 0 ? (
+              <p className="text-white/50 text-sm">None.</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {sellerDisputes.map((d: any) => (
+                  <li key={d.id} className="flex justify-between gap-2 border-b border-white/5 pb-2">
+                    <span className="text-white/80 truncate">
+                      {(d.order as any)?.product?.name ?? "Order"} · {(d.order as any)?.id?.slice(0, 8)}
+                    </span>
+                    <span className="text-gold/90 text-xs uppercase shrink-0">{d.status}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-white/40 text-xs mt-2">Resolution is handled in the admin console.</p>
+          </div>
+
           <div className="bg-white/5 border border-white/10 p-4 sm:p-6">
             <h2 className="font-serif text-2xl sm:text-3xl text-gold mb-3 sm:mb-4">Orders</h2>
             {orders.length === 0 ? (
@@ -456,13 +528,31 @@ export default function DashboardPage() {
                       <div className="flex-1">
                         <p className="text-white font-medium mb-1">{order.product?.name ?? "Order"}</p>
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge variant={order.status === "delivered" ? "gold" : order.status === "out_for_delivery" ? "outline" : "outline"}>
+                          <Badge
+                            variant={
+                              order.status === "completed"
+                                ? "gold"
+                                : order.status === "shipped"
+                                  ? "outline"
+                                  : order.status === "refunded"
+                                    ? "outline"
+                                    : "outline"
+                            }
+                          >
                             {order.status}
                           </Badge>
                           <span className="text-gold font-semibold">
                             {formatPrice(Number(order.amount))}
                           </span>
                         </div>
+                        {order.escrow_status && order.escrow_status !== "none" && (
+                          <p className="text-white/35 text-[10px] mb-2">
+                            Escrow: {order.escrow_status}
+                            {order.payout_release_at && order.escrow_status === "holding"
+                              ? ` · payout window ${new Date(order.payout_release_at).toLocaleDateString()}`
+                              : ""}
+                          </p>
+                        )}
                         
                         {/* Shipping Address */}
                         {order.shipping_address && (
@@ -485,18 +575,25 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
+
+                    <OrderTimeline
+                      status={order.status}
+                      createdAt={order.created_at}
+                      updatedAt={order.updated_at}
+                      className="pt-2 border-t border-white/10"
+                    />
                     
                     {/* Order Status Update */}
-                    {order.status !== "delivered" && order.status !== "cancelled" && (
+                    {order.status !== "completed" && order.status !== "cancelled" && order.status !== "refunded" && (
                       <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-white/10">
-                        <label className="text-white/70 text-xs self-center">Update Status:</label>
+                        <label className="text-white/70 text-xs self-center">Update status</label>
                         <select
                           value={order.status}
                           onChange={async (e) => {
                             const newStatus = e.target.value;
                             const token = await getAccessToken();
                             if (!token) return;
-                            
+
                             try {
                               const response = await fetch(`/api/orders/${order.id}`, {
                                 method: "PATCH",
@@ -506,9 +603,8 @@ export default function DashboardPage() {
                                 },
                                 body: JSON.stringify({ status: newStatus }),
                               });
-                              
+
                               if (response.ok) {
-                                // Reload orders
                                 loadDashboard();
                               }
                             } catch (error) {
@@ -518,8 +614,9 @@ export default function DashboardPage() {
                           className="flex-1 bg-black border border-white/20 px-3 py-2 text-white text-sm focus:border-gold focus:outline-none"
                         >
                           <option value="paid">Paid</option>
-                          <option value="out_for_delivery">Out for Delivery</option>
-                          <option value="delivered">Delivered</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="completed">Completed</option>
+                          <option value="refunded">Refunded</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
                       </div>

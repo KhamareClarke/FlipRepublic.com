@@ -23,6 +23,9 @@ export default function NewProductPage() {
     colorway: "",
     releaseYear: "",
     authenticated: false,
+    sku: "",
+    stock_quantity: "1",
+    track_inventory: true,
   });
 
   useEffect(() => {
@@ -101,6 +104,9 @@ export default function NewProductPage() {
           categoryId: formData.categoryId || null,
           releaseYear: formData.releaseYear ? parseInt(formData.releaseYear) : null,
           images,
+          sku: formData.sku.trim() || null,
+          stock_quantity: Math.max(0, parseInt(formData.stock_quantity || "1", 10) || 1),
+          track_inventory: formData.track_inventory,
         }),
       });
 
@@ -232,6 +238,41 @@ export default function NewProductPage() {
                 className="w-full bg-black border border-white/20 px-4 py-3 text-white focus:border-gold focus:outline-none transition-colors"
                 placeholder="0.00"
               />
+            </div>
+
+            <div>
+              <label className="block text-white/60 text-sm mb-2">SKU (optional)</label>
+              <input
+                type="text"
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                className="w-full bg-black border border-white/20 px-4 py-3 text-white focus:border-gold focus:outline-none transition-colors"
+                placeholder="Unique per seller"
+              />
+            </div>
+
+            <div>
+              <label className="block text-white/60 text-sm mb-2">Stock quantity</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.stock_quantity}
+                onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                className="w-full bg-black border border-white/20 px-4 py-3 text-white focus:border-gold focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 md:col-span-2">
+              <input
+                id="track-inv-new"
+                type="checkbox"
+                checked={formData.track_inventory}
+                onChange={(e) => setFormData({ ...formData, track_inventory: e.target.checked })}
+                className="h-4 w-4 accent-gold"
+              />
+              <label htmlFor="track-inv-new" className="text-white/70 text-sm">
+                Track inventory (uncheck for display-only / unlimited listings)
+              </label>
             </div>
 
             <div>

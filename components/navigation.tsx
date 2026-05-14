@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Container } from "@/components/ui/container";
-import { ShoppingBag, User, Menu, X } from "lucide-react";
+import { ShoppingBag, User, Menu, X, Heart, MessageCircle } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function Navigation() {
@@ -53,12 +53,19 @@ export function Navigation() {
 
   // Conditionally add Account or Seller Dashboard based on role
   // Sellers see only "Seller Dashboard", Buyers see only "Account"
-  const accountLink = 
+  const accountLink =
     userRole === "seller" || userRole === "admin"
       ? { href: "/dashboard", label: "Seller Dashboard" }
       : { href: "/account", label: "Account" };
 
-  const links = [...baseLinks, accountLink];
+  const showSavedLink = userRole !== "seller" && userRole !== "admin";
+
+  const links = [
+    ...baseLinks,
+    { href: "/messages", label: "Messages" },
+    ...(showSavedLink ? [{ href: "/saved", label: "Saved" }] : []),
+    accountLink,
+  ];
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 premium-card border-b-0">
@@ -94,6 +101,22 @@ export function Navigation() {
 
           {/* Desktop Icons */}
           <div className="hidden md:flex items-center space-x-4">
+            <Link
+              href="/messages"
+              className="luxury-border p-2 rounded-full hover:gold-glow transition-all duration-300"
+              aria-label="Messages"
+            >
+              <MessageCircle className="w-4 h-4 text-gold" />
+            </Link>
+            {showSavedLink && (
+              <Link
+                href="/saved"
+                className="luxury-border p-2 rounded-full hover:gold-glow transition-all duration-300"
+                aria-label="Saved items"
+              >
+                <Heart className="w-4 h-4 text-gold" />
+              </Link>
+            )}
             <Link
               href={userRole === "seller" || userRole === "admin" ? "/dashboard" : "/account"}
               className="luxury-border p-2 rounded-full hover:gold-glow transition-all duration-300"
@@ -141,6 +164,24 @@ export function Navigation() {
               </Link>
             ))}
             <div className="flex items-center space-x-4 pt-4 border-t border-white/10">
+              <Link
+                href="/messages"
+                onClick={() => setMobileMenuOpen(false)}
+                className="luxury-border p-2 rounded-full hover:gold-glow transition-all duration-300"
+                aria-label="Messages"
+              >
+                <MessageCircle className="w-4 h-4 text-gold" />
+              </Link>
+              {showSavedLink && (
+                <Link
+                  href="/saved"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="luxury-border p-2 rounded-full hover:gold-glow transition-all duration-300"
+                  aria-label="Saved items"
+                >
+                  <Heart className="w-4 h-4 text-gold" />
+                </Link>
+              )}
               <Link
                 href={userRole === "seller" || userRole === "admin" ? "/dashboard" : "/account"}
                 onClick={() => setMobileMenuOpen(false)}

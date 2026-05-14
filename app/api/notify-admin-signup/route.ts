@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { tplBuyerSignupNotifyAdmin } from "@/lib/email-templates";
 
 export const runtime = "nodejs";
 
@@ -50,18 +51,12 @@ export async function POST(request: NextRequest) {
 
     await sendEmail({
       to: adminEmail,
-      subject: "New User Registration - FlipRepublic",
-      text: `A new user has registered on FlipRepublic.
-
-Email: ${email}
-Username: ${displayUsername}
-Role: ${userRole}
-User ID: ${userId}
-
-Please review and approve this user in the admin dashboard:
-${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/admin
-
-${userRole === "buyer" ? "Buyer accounts are automatically approved and can login immediately." : "The user cannot login until their profile is approved by an admin."}`,
+      ...tplBuyerSignupNotifyAdmin({
+        buyerEmail: email,
+        username: displayUsername,
+        userId,
+        role: userRole,
+      }),
     });
 
     return NextResponse.json({ success: true, message: "Admin notification sent." });

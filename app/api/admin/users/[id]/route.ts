@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProfileForUser, getUserFromRequest } from "@/lib/supabase/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -65,6 +66,12 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+
+  await logAdminAction(user.id, "admin_user_patch", "sellers", context.params.id, {
+    is_banned: updateData.is_banned,
+    is_admin_approved: updateData.is_admin_approved,
+    role: updateData.role,
+  });
 
   const { data: authUser } = await supabase.auth.admin.getUserById(context.params.id);
 

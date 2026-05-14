@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getProfileForUser, getUserFromRequest } from "@/lib/supabase/auth";
 import { sendEmail } from "@/lib/email";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,8 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await logAdminAction(user.id, "admin_product_patch", "products", context.params.id, { payload });
 
   // Send email to seller if status changed to "active"
   if (payload.status === "active" && currentProduct && currentProduct.status !== "active") {

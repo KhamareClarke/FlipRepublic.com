@@ -3,6 +3,10 @@ import { createSupabaseRequestClient } from "@/lib/supabase/request";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getProfileForUser, getUserFromRequest } from "@/lib/supabase/auth";
 import { sendEmail } from "@/lib/email";
+import { tplAdminNewListing } from "@/lib/email-templates";
+import { normalizeProductSeller } from "@/lib/product-serialize";
+import { findBannedListingTerms } from "@/lib/content-filter";
+import { MARKETPLACE_STOCK_OR } from "@/lib/product-inventory";
 
 export const runtime = "nodejs";
 
@@ -12,6 +16,10 @@ export async function GET(request: NextRequest) {
   const condition = searchParams.get("condition");
   const brand = searchParams.get("brand");
   const search = searchParams.get("search");
+  const size = searchParams.get("size");
+  const minPrice = searchParams.get("minPrice");
+  const maxPrice = searchParams.get("maxPrice");
+  const sort = searchParams.get("sort") ?? "newest";
   const mine = searchParams.get("mine") === "true";
   const status = searchParams.get("status");
 
@@ -20,11 +28,13 @@ export async function GET(request: NextRequest) {
     accessToken = undefined;
   }
 
+  let viewerUser: { id: string } | null = null;
   if (mine) {
-    const user = await getUserFromRequest(request);
-    if (!user) {
+    const u = await getUserFromRequest(request);
+    if (!u) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    viewerUser = u;
   }
 
   const supabase = createSupabaseRequestClient(accessToken);
@@ -39,62 +49,128 @@ export async function GET(request: NextRequest) {
     categoryId = data?.id ?? null;
   }
 
-  let query = supabase
-    .from("products")
-    .select(
-      `
+  const selectCols = `
         *,
         images:product_images(*),
         seller:sellers(user_id, username, role, is_admin_approved),
         category:categories(*)
-      `
-    )
-    .order("created_at", { ascending: false });
-  
-  // Only filter by status if explicitly requested (show all products by default)
-  // Only filter for "mine" queries to show seller's own products
-  if (mine && !status) {
-    // For seller's own products, show all statuses
-  } else if (status) {
-    // If status filter is explicitly set, apply it
-    query = query.eq("status", status);
-  }
-  // Otherwise, show all products (active, sold, draft, etc.)
+      `;
 
-  if (categoryId) {
-    query = query.eq("category_id", categoryId);
-  }
+  const qTrim = (search ?? "").trim().slice(0, 200);
+  const preferFts = qTrim.length > 0 && process.env.USE_PRODUCT_FTS !== "false";
+  const searchModes: ("fts" | "ilike")[] = preferFts ? ["fts", "ilike"] : ["ilike"];
 
-  if (condition && condition !== "all") {
-    query = query.eq("condition", condition);
-  }
+  let data: any[] | null = null;
+  let error: { message: string } | null = null;
 
-  if (brand && brand !== "all") {
-    query = query.eq("brand", brand);
-  }
+  for (const mode of searchModes) {
+    let query = supabase.from("products").select(selectCols);
 
-  if (search) {
-    query = query.or(`name.ilike.%${search}%,brand.ilike.%${search}%`);
-  }
-
-  if (mine) {
-    const user = await getUserFromRequest(request);
-    if (user) {
-      query = query.eq("seller_id", user.id);
+    if (mine) {
+      if (status) query = query.eq("status", status);
+    } else if (status) {
+      query = query.eq("status", status);
     }
-  }
 
-  if (status) {
-    query = query.eq("status", status);
-  }
+    if (!mine && status === "active") {
+      query = query.or(MARKETPLACE_STOCK_OR);
+    }
 
-  const { data, error } = await query;
+    if (categoryId) {
+      query = query.eq("category_id", categoryId);
+    }
+
+    if (condition && condition !== "all") {
+      query = query.eq("condition", condition);
+    }
+
+    if (brand && brand !== "all") {
+      query = query.eq("brand", brand);
+    }
+
+    if (size && size !== "all") {
+      query = query.eq("size", size);
+    }
+
+    const minP = minPrice != null ? Number(minPrice) : NaN;
+    if (Number.isFinite(minP)) {
+      query = query.gte("price", minP);
+    }
+    const maxP = maxPrice != null ? Number(maxPrice) : NaN;
+    if (Number.isFinite(maxP)) {
+      query = query.lte("price", maxP);
+    }
+
+    if (qTrim.length > 0) {
+      if (mode === "fts") {
+        const fts = qTrim.replace(/[^a-zA-Z0-9\s'-]/g, " ").trim();
+        if (fts.length === 0) continue;
+        query = query.textSearch("search_tsv", fts, { type: "websearch", config: "english" });
+      } else {
+        const esc = qTrim.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+        query = query.or(`name.ilike.%${esc}%,brand.ilike.%${esc}%,description.ilike.%${esc}%`);
+      }
+    }
+
+    if (mine && viewerUser) {
+      query = query.eq("seller_id", viewerUser.id);
+    }
+
+    switch (sort) {
+      case "price_asc":
+        query = query.order("price", { ascending: true });
+        break;
+      case "price_desc":
+        query = query.order("price", { ascending: false });
+        break;
+      default:
+        query = query.order("created_at", { ascending: false });
+    }
+
+    const res = await query;
+    if (!res.error) {
+      data = res.data;
+      error = null;
+      break;
+    }
+    error = res.error;
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ products: data ?? [] });
+  const rows = (data ?? []).map((row) => normalizeProductSeller(row));
+  const ids = rows.map((p) => p.id).filter(Boolean);
+  const statsByProduct = new Map<string, { review_avg: number; review_count: number }>();
+
+  if (ids.length > 0) {
+    const pub = createSupabaseRequestClient();
+    const { data: revRows } = await pub.from("product_reviews").select("product_id, rating").in("product_id", ids);
+    if (revRows && revRows.length > 0) {
+      const acc = new Map<string, number[]>();
+      for (const r of revRows) {
+        const pid = r.product_id as string;
+        if (!pid) continue;
+        if (!acc.has(pid)) acc.set(pid, []);
+        acc.get(pid)!.push(Number(r.rating));
+      }
+      for (const [pid, ratings] of Array.from(acc.entries())) {
+        const n = ratings.length;
+        statsByProduct.set(pid, {
+          review_avg: Math.round((ratings.reduce((a, b) => a + b, 0) / n) * 10) / 10,
+          review_count: n,
+        });
+      }
+    }
+  }
+
+  const merged = rows.map((p) => {
+    const s = statsByProduct.get(p.id);
+    return s ? { ...p, ...s } : { ...p, review_avg: null as number | null, review_count: 0 };
+  });
+
+  return NextResponse.json({ products: merged });
 }
 
 export async function POST(request: NextRequest) {
@@ -130,11 +206,37 @@ export async function POST(request: NextRequest) {
     colorway,
     releaseYear,
     images = [],
+    sku = null as string | null,
+    stock_quantity = 1,
+    track_inventory = true,
   } = payload;
 
   if (!name || !brand || !condition || !size || !price) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
   }
+
+  const combinedText = [name, brand, description ?? "", colorway ?? ""].join(" ");
+  const banned = findBannedListingTerms(combinedText);
+  if (banned.length > 0) {
+    return NextResponse.json(
+      { error: "Listing contains blocked terms. Revise your title or description.", terms: banned },
+      { status: 400 }
+    );
+  }
+
+  const minImages = Math.max(1, Math.min(12, Number(process.env.MIN_PRODUCT_IMAGES ?? "4")));
+  if (!Array.isArray(images) || images.length < minImages) {
+    return NextResponse.json(
+      {
+        error: `At least ${minImages} product images are required (multiple angles help verification).`,
+      },
+      { status: 400 }
+    );
+  }
+
+  const skuTrim = typeof sku === "string" && sku.trim() ? sku.trim() : null;
+  const stockNum = Math.max(0, Math.floor(Number(stock_quantity ?? 1)));
+  const trackInv = track_inventory !== false;
 
   const { data: product, error } = await supabase
     .from("products")
@@ -151,6 +253,9 @@ export async function POST(request: NextRequest) {
       release_year: releaseYear ?? null,
       status: "under_review",
       authenticated: false,
+      sku: skuTrim,
+      stock_quantity: stockNum,
+      track_inventory: trackInv,
     })
     .select("*")
     .single();
@@ -169,6 +274,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const { empireDispatch } = await import("@/lib/empire-os/dispatch");
+  void empireDispatch({
+    event_type: "listing.submitted",
+    payload: { name, status: product.status, sku: skuTrim },
+    actor_user_id: user.id,
+    product_id: product.id,
+  }).catch((e) => console.error("[empire_os]", e));
+
   // Send email notification to admin
   try {
     const adminEmail = process.env.ADMIN_EMAIL ?? process.env.SMTP_USER ?? "";
@@ -186,27 +299,15 @@ export async function POST(request: NextRequest) {
       
       const sellerName = sellerData?.username || sellerEmail.split("@")[0];
       
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const mail = tplAdminNewListing({
+        productName: name,
+        sellerUsername: sellerName,
+        productUrl: `${baseUrl}/admin`,
+      });
       await sendEmail({
         to: adminEmail,
-        subject: "New Product Listing - FlipRepublic",
-        text: `A new product listing has been submitted for review.
-
-Product: ${name}
-Brand: ${brand}
-Price: £${price}
-Condition: ${condition}
-Size: ${size}
-
-Seller: ${sellerName} (${sellerEmail})
-Product ID: ${product.id}
-
-Status: Under Review
-
-Please review and approve this listing:
-${baseUrl}/admin
-
-The product will be visible on the marketplace once approved.`,
+        ...mail,
       });
     }
   } catch (emailError) {

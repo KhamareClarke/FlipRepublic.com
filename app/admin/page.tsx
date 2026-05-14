@@ -23,8 +23,20 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [listingStatusFilter, setListingStatusFilter] = useState<string>("all");
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
+  const [disputes, setDisputes] = useState<any[]>([]);
+  const [fraudSignals, setFraudSignals] = useState<any>(null);
+  const [adminActivity, setAdminActivity] = useState<any[]>([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [pfCouponCode, setPfCouponCode] = useState("");
+  const [pfDiscountType, setPfDiscountType] = useState<"percent" | "fixed">("percent");
+  const [pfDiscountVal, setPfDiscountVal] = useState("");
+  const [pfMax, setPfMax] = useState("");
+  const [pfSaving, setPfSaving] = useState(false);
+  const [empireEvents, setEmpireEvents] = useState<any[]>([]);
+  const [empireSuggestions, setEmpireSuggestions] = useState<any[]>([]);
 
   const loadData = async () => {
     const token = await getAccessToken();
@@ -54,22 +66,41 @@ export default function AdminPage() {
 
     setIsAdmin(true);
 
-    const [metricsResponse, appsResponse, productsResponse, usersResponse] = await Promise.all([
+    const [metricsResponse, appsResponse, productsResponse, usersResponse, disputesRes, fraudRes, activityRes, couponsRes, empireEvRes, empireSgRes] =
+      await Promise.all([
       fetch("/api/admin/overview", { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/admin/seller-applications", { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/admin/products", { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/disputes", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/admin/fraud-signals", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/admin/activity?limit=40", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/coupons", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/admin/empire-os/events?limit=30", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/admin/empire-os/suggestions", { headers: { Authorization: `Bearer ${token}` } }),
     ]);
 
     const metricsData = await metricsResponse.json();
     const appsData = await appsResponse.json();
     const productsData = await productsResponse.json();
     const usersData = await usersResponse.json();
+    const disputesData = disputesRes.ok ? await disputesRes.json() : { disputes: [] };
+    const fraudData = fraudRes.ok ? await fraudRes.json() : null;
+    const activityData = activityRes.ok ? await activityRes.json() : { actions: [] };
+    const couponsData = couponsRes.ok ? await couponsRes.json() : { coupons: [] };
+    const empireEvData = empireEvRes.ok ? await empireEvRes.json() : { events: [] };
+    const empireSgData = empireSgRes.ok ? await empireSgRes.json() : { suggestions: [] };
 
     setMetrics(metricsData.metrics ?? null);
     setApplications(appsData.applications ?? []);
     setProducts(productsData.products ?? []);
     setUsers(usersData.users ?? []);
+    setDisputes(disputesData.disputes ?? []);
+    setFraudSignals(fraudData);
+    setAdminActivity(activityData.actions ?? []);
+    setCoupons(couponsData.coupons ?? []);
+    setEmpireEvents(empireEvData.events ?? []);
+    setEmpireSuggestions(empireSgData.suggestions ?? []);
     setLoading(false);
   };
 
@@ -112,6 +143,17 @@ export default function AdminPage() {
     loadData();
   };
 
+  const updateProductRecord = async (id: string, fields: Record<string, unknown>) => {
+    const token = await getAccessToken();
+    if (!token) return;
+    await fetch(`/api/admin/products/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(fields),
+    });
+    loadData();
+  };
+
   const banUser = async (userId: string, isBanned: boolean) => {
     const token = await getAccessToken();
     if (!token) {
@@ -136,6 +178,59 @@ export default function AdminPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ is_admin_approved: approved }),
+    });
+    loadData();
+  };
+
+  const resolveDispute = async (disputeId: string, status: string, relistProduct = false) => {
+    const token = await getAccessToken();
+    if (!token) return;
+    await fetch(`/api/disputes/${disputeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        status,
+        admin_notes: "Resolved via admin console",
+        admin_resolution: status,
+        relistProduct: status === "resolved_refund" ? relistProduct : false,
+      }),
+    });
+    loadData();
+  };
+
+  const createPlatformCoupon = async () => {
+    const token = await getAccessToken();
+    if (!token) return;
+    setPfSaving(true);
+    const res = await fetch("/api/coupons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        code: pfCouponCode,
+        discount_type: pfDiscountType,
+        discount_value: parseFloat(pfDiscountVal),
+        seller_id: null,
+        max_redemptions: pfMax ? parseInt(pfMax, 10) : null,
+      }),
+    });
+    setPfSaving(false);
+    if (res.ok) {
+      setPfCouponCode("");
+      setPfDiscountVal("");
+      setPfMax("");
+      loadData();
+    } else {
+      const d = await res.json();
+      alert(d.error || "Failed to create coupon");
+    }
+  };
+
+  const dismissEmpireSuggestion = async (id: string) => {
+    const token = await getAccessToken();
+    if (!token) return;
+    await fetch(`/api/admin/empire-os/suggestions/${id}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
     });
     loadData();
   };
@@ -185,6 +280,205 @@ export default function AdminPage() {
           </section>
         )}
 
+        <section className="space-y-4 border border-white/10 bg-white/5 p-6">
+          <h2 className="font-serif text-2xl text-gold">Empire OS</h2>
+          <p className="text-white/50 text-sm">
+            Rule-based event stream and suggestions (skills). Set <span className="font-mono text-white/70">EMPIRE_OS_ENABLED=false</span> to
+            disable dispatch.
+          </p>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-gold/80 text-xs uppercase mb-2">Recent events</p>
+              {empireEvents.length === 0 ? (
+                <p className="text-white/50 text-xs">No events yet.</p>
+              ) : (
+                <ul className="space-y-2 text-xs text-white/70 max-h-56 overflow-y-auto">
+                  {empireEvents.map((e: any) => (
+                    <li key={e.id} className="border-b border-white/5 pb-2">
+                      <span className="text-gold/90">{e.event_type}</span>
+                      {e.skills_applied?.length ? (
+                        <span className="text-white/40 ml-2">skills: {e.skills_applied.join(", ")}</span>
+                      ) : null}
+                      <span className="text-white/40 block">{new Date(e.created_at).toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="text-gold/80 text-xs uppercase mb-2">Open suggestions</p>
+              {empireSuggestions.length === 0 ? (
+                <p className="text-white/50 text-xs">No open suggestions.</p>
+              ) : (
+                <ul className="space-y-3 text-xs text-white/80 max-h-56 overflow-y-auto">
+                  {empireSuggestions.map((s: any) => (
+                    <li key={s.id} className="border border-white/10 p-3 space-y-2">
+                      <div className="flex flex-wrap justify-between gap-2">
+                        <span className="text-gold/90">{s.suggestion_type}</span>
+                        <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => void dismissEmpireSuggestion(s.id)}>
+                          Dismiss
+                        </Button>
+                      </div>
+                      <p className="text-white/60">{s.message}</p>
+                      {s.seller_id ? (
+                        <p className="text-white/40 font-mono text-[10px]">seller {s.seller_id.slice(0, 8)}…</p>
+                      ) : (
+                        <p className="text-white/40 text-[10px]">Platform queue</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4 border border-white/10 bg-white/5 p-6">
+          <h2 className="font-serif text-2xl text-gold">Platform coupons</h2>
+          <p className="text-white/50 text-sm">
+            Codes with no seller restriction apply to any active listing at checkout (subject to min order and dates).
+          </p>
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <input
+              className="bg-black border border-white/20 px-3 py-2 text-white"
+              placeholder="Code"
+              value={pfCouponCode}
+              onChange={(e) => setPfCouponCode(e.target.value)}
+            />
+            <select
+              className="bg-black border border-white/20 px-3 py-2 text-white"
+              value={pfDiscountType}
+              onChange={(e) => setPfDiscountType(e.target.value as "percent" | "fixed")}
+            >
+              <option value="percent">Percent</option>
+              <option value="fixed">Fixed £</option>
+            </select>
+            <input
+              className="bg-black border border-white/20 px-3 py-2 text-white"
+              placeholder="Value"
+              value={pfDiscountVal}
+              onChange={(e) => setPfDiscountVal(e.target.value)}
+            />
+            <input
+              className="bg-black border border-white/20 px-3 py-2 text-white"
+              placeholder="Max uses (optional)"
+              value={pfMax}
+              onChange={(e) => setPfMax(e.target.value)}
+            />
+          </div>
+          <Button size="sm" variant="primary" disabled={pfSaving || !pfCouponCode.trim() || !pfDiscountVal} onClick={() => void createPlatformCoupon()}>
+            {pfSaving ? "Saving…" : "Create platform coupon"}
+          </Button>
+          <div className="pt-4 border-t border-white/10">
+            <p className="text-white/60 text-xs mb-2">Recent (all scopes)</p>
+            <ul className="space-y-1 text-xs text-white/70 max-h-40 overflow-y-auto">
+              {coupons.slice(0, 25).map((c: any) => (
+                <li key={c.id}>
+                  <span className="text-gold font-mono">{c.code}</span> ·{" "}
+                  {c.seller_id ? `seller ${c.seller_id.slice(0, 8)}…` : "platform"} ·{" "}
+                  {c.discount_type === "percent" ? `${c.discount_value}%` : formatPrice(Number(c.discount_value))} · uses{" "}
+                  {c.redemption_count}
+                  {c.max_redemptions != null ? `/${c.max_redemptions}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="space-y-4 border border-white/10 bg-white/5 p-6">
+          <h2 className="font-serif text-2xl text-gold">Order disputes</h2>
+          {disputes.length === 0 ? (
+            <p className="text-white/50 text-sm">No disputes.</p>
+          ) : (
+            <div className="space-y-4">
+              {disputes.map((d: any) => (
+                <div key={d.id} className="border border-white/10 p-4 space-y-2 text-sm">
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <span className="text-white/80">
+                      Order {(d.order as any)?.id?.slice(0, 8)} · {(d.order as any)?.product?.name ?? "Product"}
+                    </span>
+                    <Badge variant="outline">{d.status}</Badge>
+                  </div>
+                  <p className="text-white/50 text-xs">{d.buyer_statement?.slice(0, 200)}</p>
+                  {["under_review", "resolved_refund", "resolved_release", "dismissed"].includes(d.status) ? null : (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <Button size="sm" variant="outline" onClick={() => resolveDispute(d.id, "under_review")}>
+                        Mark review
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => resolveDispute(d.id, "resolved_release")}>
+                        Release seller
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => resolveDispute(d.id, "resolved_refund", false)}>
+                        Refund buyer
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => resolveDispute(d.id, "resolved_refund", true)}>
+                        Refund + relist
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => resolveDispute(d.id, "dismissed")}>
+                        Dismiss
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4 border border-white/10 bg-white/5 p-6">
+          <h2 className="font-serif text-2xl text-gold">Fraud signals (heuristic)</h2>
+          {!fraudSignals ? (
+            <p className="text-white/50 text-sm">Could not load signals.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+              <div>
+                <p className="text-gold/80 text-xs uppercase mb-2">Sellers with multiple refunds (60d)</p>
+                <ul className="space-y-1 text-white/70">
+                  {(fraudSignals.highRefundSellers ?? []).length === 0 && <li>None flagged.</li>}
+                  {(fraudSignals.highRefundSellers ?? []).map((x: any) => (
+                    <li key={x.seller_id}>
+                      {x.seller_id.slice(0, 8)}… · {x.refunds} refunds · £{Number(x.amount).toFixed(0)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-gold/80 text-xs uppercase mb-2">Price vs category median (&gt;4×)</p>
+                <ul className="space-y-1 text-white/70">
+                  {(fraudSignals.priceOutlierListings ?? []).length === 0 && <li>None flagged.</li>}
+                  {(fraudSignals.priceOutlierListings ?? []).map((x: any) => (
+                    <li key={x.id} className="truncate" title={x.name}>
+                      {x.name} · {formatPrice(x.price)} (median {formatPrice(x.categoryMedian)})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <p className="text-white/40 text-xs md:col-span-2">{fraudSignals.note}</p>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4 border border-white/10 bg-white/5 p-6">
+          <h2 className="font-serif text-2xl text-gold">Admin activity log</h2>
+          {adminActivity.length === 0 ? (
+            <p className="text-white/50 text-sm">No logged actions yet.</p>
+          ) : (
+            <ul className="space-y-2 text-xs text-white/70 max-h-64 overflow-y-auto">
+              {adminActivity.map((a: any) => (
+                <li key={a.id} className="border-b border-white/5 pb-2">
+                  <span className="text-gold/90">{a.action}</span>{" "}
+                  {a.target_table && (
+                    <span className="text-white/50">
+                      {a.target_table} {a.target_id?.slice(0, 8)}
+                    </span>
+                  )}
+                  <span className="text-white/40 ml-2">{new Date(a.created_at).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <section className="space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <h2 className="font-serif text-2xl sm:text-3xl text-gold">Seller Applications</h2>
@@ -192,9 +486,9 @@ export default function AdminPage() {
               {["all", "pending", "approved", "rejected"].map((status) => (
                 <Button
                   key={status}
-                  variant={filterStatus === status ? "primary" : "outline"}
+                  variant={applicationStatusFilter === status ? "primary" : "outline"}
                   size="sm"
-                  onClick={() => setFilterStatus(status)}
+                  onClick={() => setApplicationStatusFilter(status)}
                   className="text-xs sm:text-sm"
                 >
                   {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -207,7 +501,7 @@ export default function AdminPage() {
           ) : (
             <div className="space-y-4">
               {applications
-                .filter((app) => filterStatus === "all" || app.status === filterStatus)
+                .filter((app) => applicationStatusFilter === "all" || app.status === applicationStatusFilter)
                 .map((application) => {
                 const identityInfo = application.identity_info ?? {};
                 const storeInfo = application.store_info ?? {};
@@ -363,6 +657,15 @@ export default function AdminPage() {
                             Ban User
                           </Button>
                         )}
+                        {user.is_banned && (
+                          <Button
+                            variant="outline"
+                            onClick={() => banUser(user.user_id, false)}
+                            className="w-full sm:w-auto"
+                          >
+                            Unban
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -376,30 +679,30 @@ export default function AdminPage() {
             <h2 className="font-serif text-2xl sm:text-3xl text-gold">Listings Moderation</h2>
             <div className="flex flex-wrap gap-2">
               <Button
-                variant={filterStatus === "all" ? "primary" : "outline"}
+                variant={listingStatusFilter === "all" ? "primary" : "outline"}
                 size="sm"
-                onClick={() => setFilterStatus("all")}
+                onClick={() => setListingStatusFilter("all")}
               >
                 All
               </Button>
               <Button
-                variant={filterStatus === "under_review" ? "primary" : "outline"}
+                variant={listingStatusFilter === "under_review" ? "primary" : "outline"}
                 size="sm"
-                onClick={() => setFilterStatus("under_review")}
+                onClick={() => setListingStatusFilter("under_review")}
               >
                 Under Review
               </Button>
               <Button
-                variant={filterStatus === "active" ? "primary" : "outline"}
+                variant={listingStatusFilter === "active" ? "primary" : "outline"}
                 size="sm"
-                onClick={() => setFilterStatus("active")}
+                onClick={() => setListingStatusFilter("active")}
               >
                 Active
               </Button>
               <Button
-                variant={filterStatus === "sold" ? "primary" : "outline"}
+                variant={listingStatusFilter === "sold" ? "primary" : "outline"}
                 size="sm"
-                onClick={() => setFilterStatus("sold")}
+                onClick={() => setListingStatusFilter("sold")}
               >
                 Sold
               </Button>
@@ -410,7 +713,7 @@ export default function AdminPage() {
           ) : (
             <div className="space-y-4">
               {products
-                .filter((p) => filterStatus === "all" || p.status === filterStatus)
+                .filter((p) => listingStatusFilter === "all" || p.status === listingStatusFilter)
                 .map((product) => (
                   <div
                     key={product.id}
@@ -420,11 +723,26 @@ export default function AdminPage() {
                       {/* Product Image */}
                       <div className="lg:col-span-1">
                         {product.images && product.images.length > 0 ? (
-                          <img
-                            src={product.images[0].url}
-                            alt={product.name}
-                            className="w-full aspect-square object-cover border border-white/20"
-                          />
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-1">
+                              {product.images.slice(0, 4).map((img: { url: string }, idx: number) => (
+                                <img
+                                  key={idx}
+                                  src={img.url}
+                                  alt={`${product.name} ${idx + 1}`}
+                                  className="w-full aspect-square object-cover border border-white/20"
+                                />
+                              ))}
+                            </div>
+                            {product.images.length > 4 && (
+                              <p className="text-white/40 text-xs">+{product.images.length - 4} more angles</p>
+                            )}
+                            {product.images_verified_at && (
+                              <Badge variant="gold" className="text-[10px]">
+                                Imagery verified
+                              </Badge>
+                            )}
+                          </div>
                         ) : (
                           <div className="w-full aspect-square bg-white/5 border border-white/20 flex items-center justify-center">
                             <p className="text-white/30 text-sm">No Image</p>
@@ -516,6 +834,43 @@ export default function AdminPage() {
                         </div>
 
                         <div className="space-y-2">
+                          {product.status === "under_review" && (
+                            <>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="w-full"
+                                disabled={(product.images?.length ?? 0) < 4}
+                                title={
+                                  (product.images?.length ?? 0) < 4
+                                    ? "Requires at least 4 listing photos before approval"
+                                    : undefined
+                                }
+                                onClick={() =>
+                                  updateProductRecord(product.id, {
+                                    status: "active",
+                                    authenticated: true,
+                                    images_verified_at: new Date().toISOString(),
+                                  })
+                                }
+                              >
+                                Approve imagery & publish
+                              </Button>
+                              {(product.images?.length ?? 0) < 4 && (
+                                <p className="text-white/40 text-[10px] text-center leading-snug">
+                                  Minimum 4 angles required to approve imagery.
+                                </p>
+                              )}
+                            </>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => updateProductStatus(product.id, "draft")}
+                          >
+                            Take down (draft)
+                          </Button>
                           <Button
                             variant={product.status === "under_review" ? "primary" : "outline"}
                             size="sm"

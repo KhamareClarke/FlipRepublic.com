@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseRequestClient } from "@/lib/supabase/request";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserFromRequest } from "@/lib/supabase/auth";
+import { escrowFieldsForNewOrder } from "@/lib/escrow";
 
 export async function GET(request: NextRequest) {
   const user = await getUserFromRequest(request);
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
           *,
           images:product_images(*)
         ),
-        seller:sellers(user_id, username, role)
+        seller:sellers(user_id, username, role, is_admin_approved)
       `
     );
   
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
       amount,
       status: "paid",
       stripe_session_id: stripeSessionId ?? null,
+      ...escrowFieldsForNewOrder(),
     })
     .select("*")
     .single();

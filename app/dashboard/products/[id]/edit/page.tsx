@@ -27,6 +27,9 @@ export default function EditProductPage() {
     releaseYear: "",
     authenticated: false,
     status: "draft",
+    sku: "",
+    stock_quantity: "1",
+    track_inventory: true,
   });
 
   useEffect(() => {
@@ -66,6 +69,10 @@ export default function EditProductPage() {
         releaseYear: product.release_year?.toString() || "",
         authenticated: product.authenticated || false,
         status: product.status || "draft",
+        sku: product.sku ?? "",
+        stock_quantity:
+          product.stock_quantity != null ? String(product.stock_quantity) : "1",
+        track_inventory: product.track_inventory !== false,
       });
       setImages(product.images?.map((img: any) => img.url) || []);
       setCategories(categoriesData.categories || []);
@@ -149,6 +156,9 @@ export default function EditProductPage() {
           release_year: formData.releaseYear ? parseInt(formData.releaseYear) : null,
           authenticated: formData.authenticated,
           status: formData.status,
+          sku: formData.sku.trim() || null,
+          stock_quantity: Math.max(0, parseInt(formData.stock_quantity || "0", 10) || 0),
+          track_inventory: formData.track_inventory,
         }),
       });
 
@@ -302,6 +312,40 @@ export default function EditProductPage() {
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 className="w-full bg-black border border-white/20 px-4 py-3 text-white focus:border-gold focus:outline-none transition-colors"
               />
+            </div>
+
+            <div>
+              <label className="block text-white/60 text-sm mb-2">SKU (optional)</label>
+              <input
+                type="text"
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                className="w-full bg-black border border-white/20 px-4 py-3 text-white focus:border-gold focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-white/60 text-sm mb-2">Stock quantity</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.stock_quantity}
+                onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                className="w-full bg-black border border-white/20 px-4 py-3 text-white focus:border-gold focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                id="track-inv-edit"
+                type="checkbox"
+                checked={formData.track_inventory}
+                onChange={(e) => setFormData({ ...formData, track_inventory: e.target.checked })}
+                className="h-4 w-4 accent-gold"
+              />
+              <label htmlFor="track-inv-edit" className="text-white/70 text-sm">
+                Track inventory
+              </label>
             </div>
 
             <div>

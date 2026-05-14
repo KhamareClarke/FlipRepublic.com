@@ -4,6 +4,8 @@ type SendEmailOptions = {
   to: string;
   subject: string;
   text: string;
+  /** Optional HTML body (same copy as text when generated from templates). */
+  html?: string;
 };
 
 function getSmtpConfig() {
@@ -16,7 +18,7 @@ function getSmtpConfig() {
   return { host, port, user, pass, from };
 }
 
-export async function sendEmail({ to, subject, text }: SendEmailOptions) {
+export async function sendEmail({ to, subject, text, html }: SendEmailOptions) {
   const { host, port, user, pass, from } = getSmtpConfig();
 
   if (!user || !pass || !from) {
@@ -39,6 +41,7 @@ export async function sendEmail({ to, subject, text }: SendEmailOptions) {
     to,
     subject,
     text,
+    ...(html ? { html } : {}),
   });
 
   return true;

@@ -48,6 +48,9 @@ export type Product = {
   description: string | null;
   colorway: string | null;
   release_year: number | null;
+  sku?: string | null;
+  stock_quantity?: number;
+  track_inventory?: boolean;
   created_at: string;
 };
 

@@ -3,6 +3,7 @@ import { createSupabaseRequestClient } from "@/lib/supabase/request";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserFromRequest } from "@/lib/supabase/auth";
 import { sendEmail } from "@/lib/email";
+import { tplOfferAcceptedBuyer, tplOfferRejectedBuyer, tplOfferCounteredBuyer } from "@/lib/email-templates";
 
 export const runtime = "nodejs";
 
@@ -69,47 +70,36 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
       .single();
     
     if (buyerEmail) {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
       const sellerName = seller?.username || "Seller";
       const productName = currentOffer.product?.name || "Product";
-      
+
       if (status === "accepted") {
-        await sendEmail({
-          to: buyerEmail,
-          subject: "Your Offer Has Been Accepted! 🎉",
-          text: `Great news! Your offer has been accepted!
-
-Product: ${productName}
-Brand: ${currentOffer.product?.brand || "N/A"}
-Your Offer: £${currentOffer.offer_price}
-Listed Price: £${currentOffer.product?.price || "0"}
-
-Seller: ${sellerName}
-
-Next steps:
-1. Complete your purchase
-2. View the product: ${baseUrl}/product/${currentOffer.product_id}
-
-Thank you for shopping with FlipRepublic!`,
+        const mail = tplOfferAcceptedBuyer({
+          productName,
+          brand: currentOffer.product?.brand,
+          offerPrice: currentOffer.offer_price,
+          listPrice: currentOffer.product?.price ?? 0,
+          sellerName,
+          productUrl: `${baseUrl}/product/${currentOffer.product_id}`,
         });
+        await sendEmail({ to: buyerEmail, ...mail });
       } else if (status === "rejected") {
-        await sendEmail({
-          to: buyerEmail,
-          subject: "Offer Update - FlipRepublic",
-          text: `Your offer has been reviewed.
-
-Product: ${productName}
-Brand: ${currentOffer.product?.brand || "N/A"}
-Your Offer: £${currentOffer.offer_price}
-
-Status: Rejected
-
-The seller has declined your offer. You can:
-- Browse other products: ${baseUrl}/marketplace
-- Make a new offer on a different item
-
-Thank you for your interest in FlipRepublic.`,
+        const mail = tplOfferRejectedBuyer({
+          productName,
+          offerPrice: currentOffer.offer_price,
         });
+        await sendEmail({ to: buyerEmail, ...mail });
+      } else if (status === "countered") {
+        const mail = tplOfferCounteredBuyer({
+          productName,
+          offerPrice: currentOffer.offer_price,
+          listPrice: currentOffer.product?.price,
+          sellerName,
+          productUrl: `${baseUrl}/product/${currentOffer.product_id}`,
+        });
+        await sendEmail({ to: buyerEmail, ...mail });
       }
     }
   } catch (emailError) {

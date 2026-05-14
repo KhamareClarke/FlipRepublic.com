@@ -6,10 +6,12 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/product-card";
+import { useBuyerWishlist } from "@/hooks/useBuyerWishlist";
 import { Container } from "@/components/ui/container";
 import { ShieldCheck, Award, Lock, Package } from "lucide-react";
 
 export default function HomePage() {
+  const wl = useBuyerWishlist();
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [trustPillars, setTrustPillars] = useState<any[]>([]);
@@ -165,7 +167,14 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {featuredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              hideWishlist={wl.variant === "seller"}
+              wishlistLoading={wl.variant === "buyer" && !wl.ready}
+              isSaved={wl.savedIds.has(product.id)}
+              onWishlistChange={wl.updateSaved}
+            />
           ))}
         </div>
 

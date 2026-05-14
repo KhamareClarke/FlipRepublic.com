@@ -2,6 +2,9 @@ import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { escrowFieldsForNewOrder } from "@/lib/escrow";
+import { fulfillProductAfterSale } from "@/lib/product-inventory";
+import { incrementCouponRedemption } from "@/lib/coupons";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
@@ -33,10 +36,23 @@ export async function POST(request: NextRequest) {
     const sellerId = metadata.seller_id;
     const buyerId = metadata.buyer_id;
     const amount = Number(metadata.amount ?? 0);
+    const discountAmount = Number(metadata.discount_amount ?? 0);
+    const couponIdRaw = metadata.coupon_id;
+    const couponId =
+      couponIdRaw && typeof couponIdRaw === "string" && couponIdRaw.length > 0 ? couponIdRaw : null;
 
     if (productId && sellerId && buyerId) {
       const supabase = createSupabaseAdminClient();
-      
+
+      const { data: existingOrder } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("stripe_session_id", session.id)
+        .maybeSingle();
+      if (existingOrder) {
+        return NextResponse.json({ received: true });
+      }
+
       // Get shipping address from metadata (collected in checkout modal)
       const shippingAddress = metadata.shipping_address || "";
       const shippingCity = metadata.shipping_city || "";
@@ -53,7 +69,15 @@ export async function POST(request: NextRequest) {
         amount,
         status: "paid",
         stripe_session_id: session.id,
+        ...escrowFieldsForNewOrder(),
       };
+
+      if (discountAmount > 0) {
+        orderData.discount_amount = discountAmount;
+      }
+      if (couponId) {
+        orderData.coupon_id = couponId;
+      }
 
       // Add shipping address fields
       if (shippingAddress) orderData.shipping_address = shippingAddress;
@@ -74,11 +98,35 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
       }
 
-      // Mark product as sold
-      await supabase
-        .from("products")
-        .update({ status: "sold" })
-        .eq("id", productId);
+      const paymentIntentId =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent &&
+              typeof session.payment_intent === "object" &&
+              "id" in session.payment_intent
+            ? (session.payment_intent as Stripe.PaymentIntent).id
+            : null;
+      if (paymentIntentId && order?.id) {
+        await supabase
+          .from("orders")
+          .update({ stripe_payment_intent_id: paymentIntentId })
+          .eq("id", order.id);
+      }
+
+      await fulfillProductAfterSale(supabase, productId);
+
+      if (couponId) {
+        await incrementCouponRedemption(supabase, couponId);
+      }
+
+      const { empireDispatch } = await import("@/lib/empire-os/dispatch");
+      void empireDispatch({
+        event_type: "order.paid",
+        payload: { amount, discount_amount: discountAmount, stripe_session_id: session.id },
+        actor_user_id: buyerId,
+        product_id: productId,
+        order_id: order.id,
+      }).catch((e) => console.error("[empire_os]", e));
 
       // If this was from an accepted offer, mark the offer as completed
       const { data: acceptedOffer } = await supabase
@@ -121,121 +169,67 @@ export async function POST(request: NextRequest) {
 
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-      // Send email notification to seller
       try {
         const { sendEmail } = await import("@/lib/email");
-        
+        const { tplOrderPlacedSeller, tplOrderPlacedBuyer, tplAdminNewOrder } = await import(
+          "@/lib/email-templates"
+        );
+
+        const shippingBlock = [
+          buyerName || buyerEmail || "Buyer",
+          shippingAddress,
+          `${shippingCity} ${shippingPostalCode}`,
+          shippingCountry,
+          shippingPhone ? `Phone: ${shippingPhone}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        const buyerAddr = buyerEmail || session.customer_details?.email || "";
+
         if (sellerEmail) {
           await sendEmail({
             to: sellerEmail,
-            subject: "New Order Received - FlipRepublic",
-            text: `You have received a new order!
-
-Order ID: ${order.id}
-Product: ${productData?.name || "Product"}
-Amount: £${amount}
-Buyer: ${buyerName || buyerEmail || "Buyer"}
-
-Shipping Address:
-${buyerName || ""}
-${shippingAddress}
-${shippingCity} ${shippingPostalCode}
-${shippingCountry}
-${shippingPhone ? `Phone: ${shippingPhone}` : ""}
-
-Please log in to your seller dashboard to view full order details and update the shipping status:
-${appUrl}/dashboard
-
-Thank you!`,
+            ...tplOrderPlacedSeller({
+              orderId: order.id,
+              productName: productData?.name || "Product",
+              amount,
+              buyerLabel: buyerName || buyerAddr || "Buyer",
+              shippingBlock,
+            }),
           });
         }
-      } catch (emailError) {
-        console.error("Failed to send seller notification:", emailError);
-        // Don't fail the webhook if email fails
-      }
 
-      // Send email notification to admin
-      try {
-        const { sendEmail } = await import("@/lib/email");
+        if (buyerAddr) {
+          await sendEmail({
+            to: buyerAddr,
+            ...tplOrderPlacedBuyer({
+              orderId: order.id,
+              productName: productData?.name || "Product",
+              amount,
+              shippingSummary: shippingBlock,
+            }),
+          });
+        }
+
         const adminEmail = process.env.ADMIN_EMAIL ?? process.env.SMTP_USER ?? "";
-        
         if (adminEmail) {
           await sendEmail({
             to: adminEmail,
-            subject: "New Payment Received - Order Complete - FlipRepublic",
-            text: `A new payment has been received and order has been completed.
-
-═══════════════════════════════════════════════════════
-ORDER INFORMATION
-═══════════════════════════════════════════════════════
-
-Order ID: ${order.id}
-Stripe Session ID: ${session.id}
-Order Status: Paid
-Payment Date: ${new Date().toLocaleString("en-GB")}
-
-═══════════════════════════════════════════════════════
-PRODUCT DETAILS
-═══════════════════════════════════════════════════════
-
-Product Name: ${productData?.name || "N/A"}
-Brand: ${productData?.brand || "N/A"}
-Condition: ${productData?.condition || "N/A"}
-Size: ${productData?.size || "N/A"}
-Listed Price: £${productData?.price || "N/A"}
-Sold Price: £${amount}
-
-═══════════════════════════════════════════════════════
-SELLER INFORMATION
-═══════════════════════════════════════════════════════
-
-Seller Username: ${sellerData?.username || "N/A"}
-Seller Email: ${sellerEmail || "N/A"}
-Seller ID: ${sellerId}
-
-═══════════════════════════════════════════════════════
-BUYER INFORMATION
-═══════════════════════════════════════════════════════
-
-Buyer Name: ${buyerName || "N/A"}
-Buyer Username: ${buyerData?.username || "N/A"}
-Buyer Email: ${buyerEmail || session.customer_details?.email || "N/A"}
-Buyer ID: ${buyerId}
-
-═══════════════════════════════════════════════════════
-SHIPPING ADDRESS
-═══════════════════════════════════════════════════════
-
-${buyerName || buyerEmail || "Buyer"}
-${shippingAddress}
-${shippingCity}
-${shippingPostalCode}
-${shippingCountry}
-${shippingPhone ? `Phone: ${shippingPhone}` : ""}
-
-═══════════════════════════════════════════════════════
-PAYMENT INFORMATION
-═══════════════════════════════════════════════════════
-
-Payment Amount: £${amount}
-Payment Method: Stripe Checkout
-Payment Status: Completed
-Currency: GBP
-
-═══════════════════════════════════════════════════════
-
-View order in admin dashboard:
-${appUrl}/admin
-
-View order details:
-${appUrl}/api/orders/${order.id}
-
-Thank you!`,
+            ...tplAdminNewOrder({
+              orderId: order.id,
+              productName: productData?.name || "N/A",
+              amount,
+              stripeSessionId: session.id,
+              paymentMode: "Stripe Checkout",
+              sellerSummary: `${sellerData?.username ?? "—"} (${sellerEmail ?? "—"})`,
+              buyerSummary: `${buyerName ?? buyerData?.username ?? "—"} (${buyerAddr})`,
+              shippingBlock,
+            }),
           });
         }
       } catch (emailError) {
-        console.error("Failed to send admin notification:", emailError);
-        // Don't fail the webhook if email fails
+        console.error("Failed to send order notification emails:", emailError);
       }
     }
   }

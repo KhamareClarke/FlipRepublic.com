@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserFromRequest } from "@/lib/supabase/auth";
 import { sendEmail } from "@/lib/email";
+import {
+  tplOrderCancelledBuyer,
+  tplOrderCompletedBuyer,
+  tplOrderRefundedBuyer,
+  tplOrderShippedBuyer,
+  tplSellerOrderStatusSelf,
+} from "@/lib/email-templates";
+
+export const runtime = "nodejs";
+
+const ORDER_STATUSES = ["paid", "shipped", "completed", "refunded", "cancelled"] as const;
+
+function isOrderStatus(s: string): s is (typeof ORDER_STATUSES)[number] {
+  return (ORDER_STATUSES as readonly string[]).includes(s);
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -14,8 +29,7 @@ export async function PATCH(
   }
 
   const supabase = createSupabaseAdminClient();
-  
-  // Check if user is the seller of this order
+
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .select("*")
@@ -27,7 +41,6 @@ export async function PATCH(
     return NextResponse.json({ error: orderError?.message ?? "Order not found." }, { status: 404 });
   }
 
-  // Verify user is the seller
   if (order.seller_id !== user.id) {
     return NextResponse.json({ error: "Unauthorized. You can only update your own orders." }, { status: 403 });
   }
@@ -35,77 +48,71 @@ export async function PATCH(
   const payload = await request.json();
   const { status } = payload;
 
-  if (!status || !["paid", "out_for_delivery", "delivered", "refunded", "cancelled"].includes(status)) {
+  if (!status || !isOrderStatus(status)) {
     return NextResponse.json({ error: "Invalid status." }, { status: 400 });
   }
 
-  // Update order status
   const { data: updatedOrder, error: updateError } = await supabase
     .from("orders")
-    .update({ status })
+    .update({ status, updated_at: new Date().toISOString() })
     .eq("id", context.params.id)
     .select("*")
     .single();
 
   if (updateError || !updatedOrder) {
     console.error("Order update error:", updateError);
-    return NextResponse.json({ 
-      error: updateError?.message ?? "Failed to update order.",
-      details: updateError 
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: updateError?.message ?? "Failed to update order.",
+        details: updateError,
+      },
+      { status: 500 }
+    );
   }
 
-  // Get product name for email
   let productName = "Product";
   try {
-    const { data: product } = await supabase
-      .from("products")
-      .select("name")
-      .eq("id", order.product_id)
-      .single();
-    if (product) {
-      productName = product.name;
-    }
+    const { data: product } = await supabase.from("products").select("name").eq("id", order.product_id).single();
+    if (product?.name) productName = product.name;
   } catch (err) {
     console.error("Failed to fetch product:", err);
   }
 
-  // Send email notification to buyer when status changes
   try {
     const { data: buyerAuthUser } = await supabase.auth.admin.getUserById(order.buyer_id);
     const buyerEmail = buyerAuthUser?.user?.email;
-    
     if (buyerEmail) {
-      const statusMessages: Record<string, string> = {
-        out_for_delivery: "Your order is out for delivery!",
-        delivered: "Your order has been delivered!",
-        refunded: "Your order has been refunded.",
-        cancelled: "Your order has been cancelled.",
-      };
+      let mail = null;
+      if (status === "shipped") {
+        mail = tplOrderShippedBuyer({
+          orderId: order.id,
+          productName,
+        });
+      } else if (status === "completed") {
+        mail = tplOrderCompletedBuyer({ orderId: order.id, productName });
+      } else if (status === "refunded") {
+        mail = tplOrderRefundedBuyer({ orderId: order.id, productName });
+      } else if (status === "cancelled") {
+        mail = tplOrderCancelledBuyer({ orderId: order.id, productName });
+      }
 
-      const message = statusMessages[status] || `Your order status has been updated to: ${status}`;
-      
-      await sendEmail({
-        to: buyerEmail,
-        subject: `Order Update - FlipRepublic`,
-        text: `${message}
+      if (mail) {
+        await sendEmail({ to: buyerEmail, ...mail });
+      }
+    }
 
-Order ID: ${order.id}
-Product: ${productName}
-Amount: £${Number(order.amount).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-Status: ${status}
-
-${status === "delivered" ? "Thank you for your purchase! We hope you enjoy your item." : ""}
-
-View your order details:
-${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/account
-
-Thank you!`,
+    const { data: sellerAuthUser } = await supabase.auth.admin.getUserById(user.id);
+    const sellerSelfEmail = sellerAuthUser?.user?.email;
+    if (sellerSelfEmail) {
+      const selfMail = tplSellerOrderStatusSelf({
+        orderId: order.id,
+        productName,
+        status,
       });
+      await sendEmail({ to: sellerSelfEmail, ...selfMail });
     }
   } catch (emailError) {
     console.error("Failed to send buyer notification:", emailError);
-    // Don't fail the update if email fails
   }
 
   return NextResponse.json({ order: updatedOrder });

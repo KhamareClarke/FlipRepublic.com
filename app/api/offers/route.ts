@@ -3,6 +3,7 @@ import { createSupabaseRequestClient } from "@/lib/supabase/request";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserFromRequest } from "@/lib/supabase/auth";
 import { sendEmail } from "@/lib/email";
+import { tplOfferNewSeller } from "@/lib/email-templates";
 
 export const runtime = "nodejs";
 
@@ -145,24 +146,14 @@ export async function POST(request: NextRequest) {
       const buyerEmail = buyerAuthUser?.user?.email || "Buyer";
       
       if (sellerEmail) {
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-        await sendEmail({
-          to: sellerEmail,
-          subject: "New Offer Received - FlipRepublic",
-          text: `You have received a new offer on your product!
-
-Product: ${productDetails?.name || "Product"}
-Brand: ${productDetails?.brand || "N/A"}
-Listed Price: £${productDetails?.price || "0"}
-
-Offer Amount: £${offerPrice}
-Buyer: ${buyerEmail}
-
-View and manage offers in your dashboard:
-${baseUrl}/dashboard
-
-You can accept or reject this offer from your seller dashboard.`,
+        const mail = tplOfferNewSeller({
+          productName: productDetails?.name || "Product",
+          brand: productDetails?.brand,
+          listPrice: productDetails?.price ?? 0,
+          offerPrice,
+          buyerLabel: buyerEmail,
         });
+        await sendEmail({ to: sellerEmail, ...mail });
       }
     }
   } catch (emailError) {
