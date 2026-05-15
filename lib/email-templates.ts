@@ -12,7 +12,7 @@ export type EmailContent = {
 const defaultBaseUrl = () =>
   process.env.NEXT_PUBLIC_SITE_URL ??
   process.env.NEXT_PUBLIC_APP_URL ??
-  "http://localhost:3000";
+  "https://fliprepublic.com";
 
 function escapeHtml(s: string) {
   return s

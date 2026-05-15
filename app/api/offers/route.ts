@@ -161,5 +161,20 @@ export async function POST(request: NextRequest) {
     // Don't fail the offer creation if email fails
   }
 
+  const listPrice = Number(productDetails?.price ?? 0);
+  const ratio = listPrice > 0 ? Number(offerPrice) / listPrice : 1;
+  const { empireDispatch } = await import("@/lib/empire-os/dispatch");
+  void empireDispatch({
+    event_type: "offer.created",
+    payload: {
+      offer_id: data.id,
+      offer_price: offerPrice,
+      ratio_to_list: ratio,
+      seller_id: product.seller_id,
+    },
+    actor_user_id: user.id,
+    product_id: productId,
+  }).catch((e) => console.error("[empire_os]", e));
+
   return NextResponse.json({ offer: data });
 }

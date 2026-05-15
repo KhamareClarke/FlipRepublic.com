@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
   const { empireDispatch } = await import("@/lib/empire-os/dispatch");
   void empireDispatch({
     event_type: "listing.submitted",
-    payload: { name, status: product.status, sku: skuTrim },
+    payload: { name, status: product.status, sku: skuTrim, price: Number(price) },
     actor_user_id: user.id,
     product_id: product.id,
   }).catch((e) => console.error("[empire_os]", e));

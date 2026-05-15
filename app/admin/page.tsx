@@ -259,9 +259,14 @@ export default function AdminPage() {
             </h1>
             <p className="text-white/70 text-sm sm:text-base mt-1">Platform governance, approvals, and moderation.</p>
           </div>
-          <Button variant="outline" onClick={handleSignOut} className="w-full sm:w-auto">
-            Sign Out
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => (window.location.href = "/admin/analytics")}>
+              Platform analytics
+            </Button>
+            <Button variant="outline" onClick={handleSignOut} className="w-full sm:w-auto">
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         {metrics && (
@@ -283,8 +288,9 @@ export default function AdminPage() {
         <section className="space-y-4 border border-white/10 bg-white/5 p-6">
           <h2 className="font-serif text-2xl text-gold">Empire OS</h2>
           <p className="text-white/50 text-sm">
-            Rule-based event stream and suggestions (skills). Set <span className="font-mono text-white/70">EMPIRE_OS_ENABLED=false</span> to
-            disable dispatch.
+            33 rule-based skills (human-in-the-loop). Cron: <span className="font-mono text-white/70">GET /api/cron/empire-os</span> with{" "}
+            <span className="font-mono text-white/70">CRON_SECRET</span>. Set <span className="font-mono text-white/70">EMPIRE_OS_ENABLED=false</span> to
+            disable.
           </p>
           <div className="grid md:grid-cols-2 gap-6">
             <div>

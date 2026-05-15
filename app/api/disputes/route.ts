@@ -154,5 +154,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const { empireDispatch } = await import("@/lib/empire-os/dispatch");
+  void empireDispatch({
+    event_type: "dispute.opened",
+    payload: { dispute_id: row.id },
+    actor_user_id: user.id,
+    order_id: orderId,
+    product_id: order.product_id,
+  }).catch((e) => console.error("[empire_os]", e));
+
   return NextResponse.json({ dispute: row });
 }

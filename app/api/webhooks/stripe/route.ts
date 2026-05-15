@@ -120,9 +120,17 @@ export async function POST(request: NextRequest) {
       }
 
       const { empireDispatch } = await import("@/lib/empire-os/dispatch");
+      const { enrichOrderPaidPayload } = await import("@/lib/empire-os/enrich");
+      const paidPayload = await enrichOrderPaidPayload(supabase, {
+        amount,
+        discount_amount: discountAmount,
+        stripe_session_id: session.id,
+        buyer_id: buyerId,
+        seller_id: sellerId,
+      });
       void empireDispatch({
         event_type: "order.paid",
-        payload: { amount, discount_amount: discountAmount, stripe_session_id: session.id },
+        payload: paidPayload,
         actor_user_id: buyerId,
         product_id: productId,
         order_id: order.id,

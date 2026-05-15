@@ -28,5 +28,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const { empireDispatch } = await import("@/lib/empire-os/dispatch");
+  void empireDispatch({
+    event_type: "search.performed",
+    payload: {
+      query: typeof body.query === "string" ? body.query : null,
+      result_count: Number.isFinite(resultCount) ? resultCount : 0,
+    },
+  }).catch((e) => console.error("[empire_os]", e));
+
   return NextResponse.json({ ok: true });
 }

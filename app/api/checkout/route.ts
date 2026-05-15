@@ -97,6 +97,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Shipping address is required." }, { status: 400 });
   }
 
+  const { empireDispatch: dispatchCheckout } = await import("@/lib/empire-os/dispatch");
+  void dispatchCheckout({
+    event_type: "checkout.started",
+    payload: { amount: purchaseAmount, product_id: productId },
+    actor_user_id: user.id,
+    product_id: productId,
+  }).catch((e) => console.error("[empire_os]", e));
+
   let finalAmount = Math.round(purchaseAmount * 100) / 100;
   let discountAmount = 0;
   let couponId: string | null = null;
@@ -155,9 +163,17 @@ export async function POST(request: NextRequest) {
     }
 
     const { empireDispatch } = await import("@/lib/empire-os/dispatch");
+    const { enrichOrderPaidPayload } = await import("@/lib/empire-os/enrich");
+    const paidPayload = await enrichOrderPaidPayload(supabaseAdmin, {
+      amount: finalAmount,
+      discount_amount: discountAmount,
+      mode: "free_checkout",
+      buyer_id: user.id,
+      seller_id: product.seller_id,
+    });
     void empireDispatch({
       event_type: "order.paid",
-      payload: { amount: finalAmount, discount_amount: discountAmount, mode: "free_checkout" },
+      payload: paidPayload,
       actor_user_id: user.id,
       product_id: productId,
       order_id: order.id,

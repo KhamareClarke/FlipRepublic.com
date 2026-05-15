@@ -11,9 +11,12 @@ type SendEmailOptions = {
 function getSmtpConfig() {
   const host = process.env.SMTP_HOST ?? "smtp.gmail.com";
   const port = Number(process.env.SMTP_PORT ?? "465");
-  const user = process.env.SMTP_USER ?? "";
-  const pass = process.env.SMTP_PASS ?? "";
-  const from = process.env.SMTP_FROM ?? user;
+  const user = (process.env.SMTP_USER ?? process.env.EMAIL_USER ?? "").trim();
+  const pass = (process.env.SMTP_PASS ?? process.env.EMAIL_PASS ?? "").trim();
+  let from = (process.env.SMTP_FROM ?? process.env.EMAIL_FROM ?? "").trim();
+  if (!from && user) {
+    from = `"FlipRepublic" <${user}>`;
+  }
 
   return { host, port, user, pass, from };
 }

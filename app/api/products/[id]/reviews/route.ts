@@ -124,5 +124,20 @@ export async function POST(request: NextRequest, context: { params: { id: string
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const { data: prod } = await supabase.from("products").select("seller_id").eq("id", context.params.id).maybeSingle();
+  const reviewBody = (body ?? "").trim();
+  const { empireDispatch } = await import("@/lib/empire-os/dispatch");
+  void empireDispatch({
+    event_type: "review.posted",
+    payload: {
+      rating: Math.round(rating),
+      body_len: reviewBody.length,
+      seller_id: prod?.seller_id,
+    },
+    actor_user_id: user.id,
+    product_id: context.params.id,
+    order_id: orderId,
+  }).catch((e) => console.error("[empire_os]", e));
+
   return NextResponse.json({ review: row });
 }
