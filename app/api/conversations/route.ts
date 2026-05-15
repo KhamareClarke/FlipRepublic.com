@@ -72,8 +72,14 @@ export async function POST(request: NextRequest) {
   }
 
   const profile = await getProfileForUser(user.id);
-  if (!profile || profile.role === "admin") {
-    return NextResponse.json({ error: "Buyers and sellers only." }, { status: 403 });
+  if (!profile) {
+    return NextResponse.json(
+      { error: "Complete account setup before messaging. Sign up as a buyer or seller first." },
+      { status: 403 }
+    );
+  }
+  if (profile.role === "admin") {
+    return NextResponse.json({ error: "Admins cannot start buyer/seller threads from the marketplace." }, { status: 403 });
   }
 
   const payload = await request.json();
@@ -83,9 +89,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "otherUserId required." }, { status: 400 });
   }
 
+  // Product inquiry: person viewing the listing is the buyer, listing owner is the seller.
   let buyerId: string;
   let sellerId: string;
-  if (profile.role === "buyer") {
+  if (productId) {
+    buyerId = user.id;
+    sellerId = otherUserId;
+  } else if (profile.role === "buyer") {
     buyerId = user.id;
     sellerId = otherUserId;
   } else {

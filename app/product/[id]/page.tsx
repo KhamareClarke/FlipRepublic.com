@@ -44,7 +44,10 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [isSeller, setIsSeller] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isOwnListing, setIsOwnListing] = useState(false);
   const [msgThreadLoading, setMsgThreadLoading] = useState(false);
+  const [msgError, setMsgError] = useState<string | null>(null);
   const [addressData, setAddressData] = useState({
     name: "",
     address: "",
@@ -104,9 +107,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       
       if (profileResponse.ok) {
         const { profile } = await profileResponse.json();
+        setCurrentUserId(profile?.user_id ?? null);
         if (profile?.role === "seller" || profile?.role === "admin") {
           setIsSeller(true);
-          // Sellers can't make offers or purchases, so don't load offers
+        }
+        if (profile?.role === "seller" || profile?.role === "admin") {
+          // Sellers can't make offers or purchases on marketplace listings
           return;
         }
       }
@@ -132,6 +138,17 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
     loadSaved();
   }, [params.id]);
+
+  useEffect(() => {
+    if (!product || !currentUserId) {
+      setIsOwnListing(false);
+      return;
+    }
+    const ownerId = product.seller_id ?? product.seller?.user_id;
+    setIsOwnListing(Boolean(ownerId && ownerId === currentUserId));
+  }, [product, currentUserId]);
+
+  const sellerUserId = product?.seller_id ?? product?.seller?.user_id ?? null;
 
   const handlePurchase = async (useOfferPrice?: number) => {
     if (isSeller) {
@@ -268,10 +285,18 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   };
 
   const handleMessageSeller = async () => {
-    if (isSeller || !product?.seller?.user_id) return;
+    setMsgError(null);
+    if (!sellerUserId) {
+      setMsgError("Seller information is missing for this listing.");
+      return;
+    }
+    if (isOwnListing) {
+      setMsgError("This is your listing — buyers will message you here.");
+      return;
+    }
     const token = await getAccessToken();
     if (!token) {
-      window.location.href = "/login?redirect=/product/" + params.id;
+      window.location.href = `/login?redirect=${encodeURIComponent("/product/" + params.id)}`;
       return;
     }
     setMsgThreadLoading(true);
@@ -283,16 +308,22 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          otherUserId: product.seller.user_id,
-          productId: product.id,
+          otherUserId: sellerUserId,
+          productId: product?.id,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        console.error(data.error || "conversation failed");
+        setMsgError(data.error || "Could not start conversation. Try signing in again.");
+        return;
+      }
+      if (!data.conversationId) {
+        setMsgError("Conversation could not be opened. Please try again.");
         return;
       }
       router.push(`/messages?c=${data.conversationId}`);
+    } catch {
+      setMsgError("Network error. Please try again.");
     } finally {
       setMsgThreadLoading(false);
     }
@@ -696,7 +727,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   itself may still carry an authentication badge where shown.
                 </p>
               )}
-              {!isSeller && product.seller?.user_id && product.status === "active" && (
+              {!isOwnListing && sellerUserId && product.status === "active" && (
                 <div className="mt-4 pt-4 border-t border-white/10">
                   <Button
                     type="button"
@@ -709,6 +740,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     <MessageCircle className="w-4 h-4 mr-2" />
                     {msgThreadLoading ? "Opening…" : "Message seller"}
                   </Button>
+                  {msgError && <p className="text-red-400 text-xs">{msgError}</p>}
                 </div>
               )}
             </div>
