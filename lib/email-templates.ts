@@ -3,16 +3,15 @@
  * Pair with `sendEmail` from `@/lib/email` (pass `html` alongside `text`).
  */
 
+import { getSiteBaseUrl } from "@/lib/site-url";
+
 export type EmailContent = {
   subject: string;
   text: string;
   html: string;
 };
 
-const defaultBaseUrl = () =>
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.NEXT_PUBLIC_APP_URL ??
-  "https://fliprepublic.com";
+const defaultBaseUrl = () => getSiteBaseUrl();
 
 function escapeHtml(s: string) {
   return s
@@ -379,6 +378,64 @@ export function tplSellerApplicationPublicAdmin(args: { summary: string }): Emai
     bodyHtml: `<pre style="white-space:pre-wrap;font-family:system-ui,sans-serif;font-size:13px;color:#cfc8bc;">${escapeHtml(args.summary)}</pre>`,
     ctaLabel: "Admin",
     ctaHref: `${base}/admin`,
+  });
+  return { subject, text, html };
+}
+
+export function tplSellerApplicationApproved(args: {
+  applicantName: string;
+  applicantEmail: string;
+  hasAccount: boolean;
+}): EmailContent {
+  const base = defaultBaseUrl();
+  const name = args.applicantName.trim() || "there";
+  const subject = "Your FlipRepublic seller account is approved! 🎉";
+
+  if (args.hasAccount) {
+    const text = `Congratulations ${name}!
+
+Your seller account has been approved. You can now list products on FlipRepublic.
+
+Login: ${base}/login
+Email: ${args.applicantEmail}
+
+Seller dashboard: ${base}/dashboard
+
+Welcome to FlipRepublic!`;
+    const html = wrapLuxuryEmail({
+      title: "Seller account approved",
+      intro: `Congratulations, ${escapeHtml(name)} — your seller access is live.`,
+      bodyHtml: `<p>Sign in with <strong>${escapeHtml(args.applicantEmail)}</strong> to list inventory and manage orders.</p>`,
+      ctaLabel: "Open seller dashboard",
+      ctaHref: `${base}/dashboard`,
+    });
+    return { subject, text, html };
+  }
+
+  const text = `Congratulations ${name}!
+
+Your seller application has been approved! 🎉
+
+Create your account with the email from your application:
+Email: ${args.applicantEmail}
+
+1. Go to ${base}/signup
+2. Sign up with ${args.applicantEmail}
+3. Your account will be set up as a seller
+4. Dashboard: ${base}/dashboard
+
+Welcome to FlipRepublic!`;
+  const html = wrapLuxuryEmail({
+    title: "Application approved",
+    intro: `Congratulations, ${escapeHtml(name)} — you're approved to sell on FlipRepublic.`,
+    bodyHtml: `<p>Use <strong>${escapeHtml(args.applicantEmail)}</strong> when you sign up so we can link your seller profile.</p>
+      <ol style="color:#ccc;line-height:1.8;padding-left:1.2em">
+        <li>Create your account</li>
+        <li>Complete your first listing</li>
+        <li>Manage orders from your dashboard</li>
+      </ol>`,
+    ctaLabel: "Create seller account",
+    ctaHref: `${base}/signup`,
   });
   return { subject, text, html };
 }

@@ -127,7 +127,8 @@ export async function POST(request: NextRequest, context: { params: { id: string
         const { data: prod } = await admin.from("products").select("name").eq("id", convRow.product_id).maybeSingle();
         productName = prod?.name ?? null;
       }
-      const base = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const { getSiteBaseUrl } = await import("@/lib/site-url");
+      const base = getSiteBaseUrl();
       const mail = tplNewMessageRecipient({
         preview: body,
         productName,

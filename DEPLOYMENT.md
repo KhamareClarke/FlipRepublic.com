@@ -21,8 +21,8 @@ Set these in Vercel (or your host) — **never commit** `.env.local`.
 | `STRIPE_SECRET_KEY` | Yes | Unless `USE_FREE_PAYMENT=true` (dev only) |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Stripe → `/api/webhooks/stripe` |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes | Checkout |
-| `NEXT_PUBLIC_SITE_URL` | Yes | `https://fliprepublic.com` |
-| `NEXT_PUBLIC_APP_URL` | Yes | Same as site URL |
+| `NEXT_PUBLIC_SITE_URL` | **Yes (production)** | `https://fliprepublic.com` — used in **all emails** (seller approval, orders, messages). If unset, code defaults to `https://fliprepublic.com`, not localhost. |
+| `NEXT_PUBLIC_APP_URL` | Recommended | Same as site URL (Stripe redirects) |
 | `EMAIL_USER` / `EMAIL_PASS` | Yes | Or `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` |
 | `ADMIN_EMAIL` | Recommended | Dispute & listing alerts |
 | `ESCROW_HOLD_DAYS` | Optional | Default `7`; `0` disables hold |

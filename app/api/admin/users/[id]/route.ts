@@ -85,7 +85,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
 
 Your account has been approved by the admin. You can now login and access your dashboard.
 
-Login at: ${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/login
+Login at: ${(await import("@/lib/site-url")).getSiteBaseUrl()}/login
 
 Welcome to FlipRepublic!`,
         });

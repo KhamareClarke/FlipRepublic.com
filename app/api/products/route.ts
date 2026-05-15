@@ -299,7 +299,8 @@ export async function POST(request: NextRequest) {
       
       const sellerName = sellerData?.username || sellerEmail.split("@")[0];
       
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const { getSiteBaseUrl } = await import("@/lib/site-url");
+      const baseUrl = getSiteBaseUrl();
       const mail = tplAdminNewListing({
         productName: name,
         sellerUsername: sellerName,

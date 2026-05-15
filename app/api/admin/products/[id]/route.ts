@@ -58,7 +58,8 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
         const sellerName = seller.username || sellerEmail?.split("@")[0] || "Seller";
         
         if (sellerEmail) {
-          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+          const { getSiteBaseUrl } = await import("@/lib/site-url");
+          const baseUrl = getSiteBaseUrl();
           await sendEmail({
             to: sellerEmail,
             subject: "Your Product Listing is Now Live! 🎉",

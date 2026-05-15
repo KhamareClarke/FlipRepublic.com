@@ -5,9 +5,10 @@ import { escrowFieldsForNewOrder } from "@/lib/escrow";
 import { getUserFromRequest } from "@/lib/supabase/auth";
 import { validateCouponForCheckout, incrementCouponRedemption } from "@/lib/coupons";
 import { fulfillProductAfterSale, isProductPurchasable } from "@/lib/product-inventory";
+import { getSiteBaseUrl } from "@/lib/site-url";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const appUrl = getSiteBaseUrl();
 
 const MIN_STRIPE_GBP = 0.3;
 

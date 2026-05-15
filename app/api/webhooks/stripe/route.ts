@@ -175,7 +175,8 @@ export async function POST(request: NextRequest) {
         .eq("user_id", buyerId)
         .maybeSingle();
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const { getSiteBaseUrl } = await import("@/lib/site-url");
+      const appUrl = getSiteBaseUrl();
 
       try {
         const { sendEmail } = await import("@/lib/email");

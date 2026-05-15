@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getProfileForUser, getUserFromRequest } from "@/lib/supabase/auth";
 import { sendEmail } from "@/lib/email";
+import { tplSellerApplicationApproved, tplSellerApplicationDecision } from "@/lib/email-templates";
 
 export const runtime = "nodejs";
 
@@ -43,7 +44,6 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
 
   if (status === "approved") {
     if (application.user_id) {
-      // Update seller record if it exists
       await supabase
         .from("sellers")
         .update({ role: "seller", is_admin_approved: true })
@@ -59,71 +59,24 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
     metadata: { reviewNotes },
   });
 
-  const applicantEmail = application.identity_info?.email;
-  const applicantName = application.identity_info?.fullName ?? "Seller";
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const applicantEmail = application.identity_info?.email as string | undefined;
+  const applicantName = (application.identity_info?.fullName as string) ?? "Seller";
 
   if (applicantEmail) {
-    if (status === "approved") {
-      const hasAccount = !!application.user_id;
-      const subject = "Your FlipRepublic seller account is approved! 🎉";
-      const message = hasAccount
-        ? `Congratulations ${applicantName}!
-
-Your seller account has been approved. You can now list products on FlipRepublic.
-
-Login to your seller dashboard:
-${baseUrl}/login
-
-Email: ${applicantEmail}
-
-After logging in, you can:
-- Access your seller dashboard at ${baseUrl}/dashboard
-- List your products
-- Manage your inventory
-- Track your sales
-
-Welcome to FlipRepublic!`
-        : `Congratulations ${applicantName}!
-
-Your seller application has been approved! 🎉
-
-To get started, you need to create an account using the email address from your application:
-Email: ${applicantEmail}
-
-Steps to get started:
-1. Go to ${baseUrl}/signup
-2. Sign up with your approved email: ${applicantEmail}
-3. After signing up, your account will automatically be set up as a seller
-4. Access your seller dashboard at ${baseUrl}/dashboard
-
-Once you're logged in, you can:
-- List your products
-- Manage your inventory
-- Track your sales
-
-Welcome to FlipRepublic!`;
-
-      try {
-        await sendEmail({ to: applicantEmail, subject, text: message });
-      } catch (emailError) {
-        console.warn("Failed to send approval email.", emailError);
+    try {
+      if (status === "approved") {
+        const mail = tplSellerApplicationApproved({
+          applicantName,
+          applicantEmail,
+          hasAccount: !!application.user_id,
+        });
+        await sendEmail({ to: applicantEmail, ...mail });
+      } else {
+        const mail = tplSellerApplicationDecision({ approved: false, notes: reviewNotes });
+        await sendEmail({ to: applicantEmail, ...mail });
       }
-    } else {
-      const subject = "Your FlipRepublic seller application update";
-      const message = `Hello ${applicantName},
-
-Your seller application was not approved at this time. 
-
-${reviewNotes ? `Review notes: ${reviewNotes}\n\n` : ""}Please contact support if you have any questions.
-
-Thank you for your interest in FlipRepublic.`;
-
-      try {
-        await sendEmail({ to: applicantEmail, subject, text: message });
-      } catch (emailError) {
-        console.warn("Failed to send rejection email.", emailError);
-      }
+    } catch (emailError) {
+      console.warn("Failed to send seller application email.", emailError);
     }
   }
 
