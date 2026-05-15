@@ -419,9 +419,9 @@ Your seller application has been approved! 🎉
 Create your account with the email from your application:
 Email: ${args.applicantEmail}
 
-1. Go to ${base}/signup
+1. Go to ${base}/signup/seller
 2. Sign up with ${args.applicantEmail}
-3. Your account will be set up as a seller
+3. Choose a password — this creates your login
 4. Dashboard: ${base}/dashboard
 
 Welcome to FlipRepublic!`;
@@ -435,7 +435,7 @@ Welcome to FlipRepublic!`;
         <li>Manage orders from your dashboard</li>
       </ol>`,
     ctaLabel: "Create seller account",
-    ctaHref: `${base}/signup`,
+    ctaHref: `${base}/signup/seller?email=${encodeURIComponent(args.applicantEmail)}`,
   });
   return { subject, text, html };
 }

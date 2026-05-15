@@ -1,18 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-export default function SellerSignupPage() {
+function SellerSignupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const prefill = searchParams.get("email");
+    if (prefill) setEmail(prefill);
+  }, [searchParams]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -243,5 +249,19 @@ export default function SellerSignupPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SellerSignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black py-24 px-6">
+          <p className="text-white/60">Loading…</p>
+        </div>
+      }
+    >
+      <SellerSignupContent />
+    </Suspense>
   );
 }

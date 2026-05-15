@@ -47,8 +47,12 @@ function LoginContent() {
           if (authCheckResponse.ok) {
             const authData = await authCheckResponse.json();
             
-            if (!authData.exists) {
-              setError("Account not found. This email may be registered as a seller but the authentication account was not created. Please contact support or try signing up again.");
+            if (!authData.exists && authData.needsSellerSignup) {
+              setError(
+                "Your seller application is approved, but you have not created a login yet. Use “Create seller account” below with the same email and a new password — then you can sign in."
+              );
+            } else if (!authData.exists) {
+              setError("No account found for this email. Create an account first, or check the email spelling.");
             } else if (authData.isSeller) {
               setError("Invalid password. Your seller account exists but the password is incorrect. Please contact support.");
             } else {
@@ -212,12 +216,29 @@ function LoginContent() {
 
         <div className="space-y-3 mt-8">
           <p className="text-white/50 text-sm">
-            New to FlipRepublic?{" "}
-            <Link 
-              href={searchParams.get("redirect") ? `/signup?redirect=${encodeURIComponent(searchParams.get("redirect")!)}` : "/signup"} 
+            Approved seller but never signed up?{" "}
+            <Link
+              href={
+                email.trim()
+                  ? `/signup/seller?email=${encodeURIComponent(email.trim())}`
+                  : "/signup/seller"
+              }
+              className="text-gold hover:text-gold/80 transition-colors font-medium"
+            >
+              Create seller account
+            </Link>
+          </p>
+          <p className="text-white/50 text-sm">
+            New buyer?{" "}
+            <Link
+              href={
+                searchParams.get("redirect")
+                  ? `/signup?redirect=${encodeURIComponent(searchParams.get("redirect")!)}`
+                  : "/signup"
+              }
               className="text-gold hover:text-gold/80 transition-colors"
             >
-              Create an account (Buyers only)
+              Create buyer account
             </Link>
           </p>
         </div>

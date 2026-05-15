@@ -21,9 +21,34 @@ export async function POST(request: NextRequest) {
     );
 
     if (!existingUser) {
-      return NextResponse.json({ 
+      const { data: allApps } = await supabase
+        .from("seller_applications")
+        .select("id, status, identity_info")
+        .eq("status", "approved")
+        .limit(200);
+
+      const emailLower = email.toLowerCase().trim();
+      const approvedApp = allApps?.find((app: { identity_info?: { email?: string } }) => {
+        const appEmail = app.identity_info?.email?.toLowerCase()?.trim();
+        return appEmail === emailLower;
+      });
+
+      if (approvedApp) {
+        return NextResponse.json({
+          exists: false,
+          approvedSellerApplication: true,
+          applicationId: approvedApp.id,
+          needsSellerSignup: true,
+          message:
+            "Seller application is approved but no login exists yet. Create your account at /signup/seller using this email.",
+        });
+      }
+
+      return NextResponse.json({
         exists: false,
-        message: "User does not exist in authentication system. The account may need to be created."
+        approvedSellerApplication: false,
+        needsSellerSignup: false,
+        message: "User does not exist in authentication system. The account may need to be created.",
       });
     }
 
