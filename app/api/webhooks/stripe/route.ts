@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { escrowFieldsForNewOrder } from "@/lib/escrow";
 import { fulfillProductAfterSale } from "@/lib/product-inventory";
 import { incrementCouponRedemption } from "@/lib/coupons";
+import { emitEmpireActivity } from "@/lib/empire-activity";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
@@ -174,6 +175,25 @@ export async function POST(request: NextRequest) {
         .select("username")
         .eq("user_id", buyerId)
         .maybeSingle();
+
+      void emitEmpireActivity({
+        event_type: "payment_succeeded",
+        user_email: buyerEmail || session.customer_details?.email || null,
+        user_id: buyerId,
+        user_name: buyerName || buyerData?.username || null,
+        message: `Order ${order.id} paid (\u00a3${(amount / 100).toFixed(2)})`,
+        metadata: {
+          order_id: order.id,
+          stripe_session_id: session.id,
+          product_id: productId,
+          product_name: productData?.name || null,
+          seller_id: sellerId,
+          buyer_id: buyerId,
+          amount,
+          discount_amount: discountAmount,
+          coupon_id: couponId,
+        },
+      });
 
       const { getSiteBaseUrl } = await import("@/lib/site-url");
       const appUrl = getSiteBaseUrl();
