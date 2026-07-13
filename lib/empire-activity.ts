@@ -111,6 +111,25 @@ export async function emitEmpireActivity(input: EmpireActivityInput): Promise<vo
     }).catch(() => undefined);
 
     clearTimeout(timeout);
+
+    const { emitFleetIngest } = await import('./fleet-ingest');
+    const fleetType =
+      input.event_type === 'payment_succeeded'
+        ? 'order'
+        : input.event_type === 'lead_created'
+          ? 'lead'
+          : input.event_type;
+    void emitFleetIngest({
+      event_type: fleetType,
+      summary: input.message || `${input.event_type}: ${input.user_email || PROJECT_ID}`,
+      payload: {
+        ...(input.metadata || {}),
+        user_email: input.user_email,
+        user_id: input.user_id,
+        user_name: input.user_name,
+        empire_event_type: input.event_type,
+      },
+    });
   } catch {
     // Best-effort telemetry — never throws.
   }
