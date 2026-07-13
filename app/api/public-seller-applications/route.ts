@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { emitFleetIngest } from "@/lib/fleet-ingest";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,12 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  void emitFleetIngest({
+    event_type: 'lead',
+    summary: `Seller application: ${identityInfo?.fullName || applicantEmail}`,
+    payload: { application_id: data?.id, email: applicantEmail },
+  });
 
   const adminEmail = process.env.ADMIN_EMAIL ?? process.env.SMTP_USER ?? "";
   const originalEmail = identityInfo?.email ?? "unknown";
