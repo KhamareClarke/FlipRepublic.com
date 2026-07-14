@@ -3,6 +3,7 @@ import { createSupabaseRequestClient } from "@/lib/supabase/request";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserFromRequest } from "@/lib/supabase/auth";
 import { sendEmail } from "@/lib/email";
+import { emitFleetIngest } from "@/lib/fleet-ingest";
 
 export const runtime = "nodejs";
 
@@ -107,6 +108,12 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await emitFleetIngest({
+    event_type: "lead",
+    summary: `Seller application: ${identityInfo?.fullName || applicantEmail}`,
+    payload: { application_id: data?.id, email: applicantEmail, user_id: user.id },
+  });
 
   const adminEmail = process.env.ADMIN_EMAIL ?? process.env.SMTP_USER ?? "";
   const originalEmail = identityInfo?.email ?? user.email ?? "unknown";

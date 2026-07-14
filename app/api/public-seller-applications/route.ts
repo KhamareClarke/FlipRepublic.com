@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  void emitFleetIngest({
+  await emitFleetIngest({
     event_type: 'lead',
     summary: `Seller application: ${identityInfo?.fullName || applicantEmail}`,
     payload: { application_id: data?.id, email: applicantEmail },

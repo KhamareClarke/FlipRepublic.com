@@ -7,6 +7,7 @@ import { tplAdminNewListing } from "@/lib/email-templates";
 import { normalizeProductSeller } from "@/lib/product-serialize";
 import { findBannedListingTerms } from "@/lib/content-filter";
 import { MARKETPLACE_STOCK_OR } from "@/lib/product-inventory";
+import { emitFleetIngest } from "@/lib/fleet-ingest";
 
 export const runtime = "nodejs";
 
@@ -281,6 +282,20 @@ export async function POST(request: NextRequest) {
     actor_user_id: user.id,
     product_id: product.id,
   }).catch((e) => console.error("[empire_os]", e));
+
+  // Await so Vercel does not drop the JARVIS notify when the response returns.
+  await emitFleetIngest({
+    event_type: "listing",
+    summary: `New listing: ${name} (£${Number(price).toFixed(2)}) — under review`,
+    payload: {
+      product_id: product.id,
+      name,
+      sku: skuTrim,
+      price: Number(price),
+      status: product.status,
+      seller_user_id: user.id,
+    },
+  });
 
   // Send email notification to admin
   try {
